@@ -1,0 +1,208 @@
+{
+  "projectType": "framework",
+  "projectName": "webpack",
+  "projectDescription": "A powerful module bundler for JavaScript that transforms, bundles, and packages any resource or asset for the browser.",
+  "theme": "sequoia",
+  "primaryColor": "#8DD6F9",
+  "lightColor": "#8DD6F9",
+  "darkColor": "#2B3A42",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/entry-points",
+              "concepts/output",
+              "concepts/loaders",
+              "concepts/plugins",
+              "concepts/mode",
+              "concepts/modules",
+              "concepts/module-resolution",
+              "concepts/dependency-graph",
+              "concepts/targets",
+              "concepts/hot-module-replacement"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/entry-context",
+              "configuration/output",
+              "configuration/module",
+              "configuration/resolve",
+              "configuration/optimization",
+              "configuration/dev-server",
+              "configuration/devtool",
+              "configuration/target",
+              "configuration/watch",
+              "configuration/externals",
+              "configuration/performance",
+              "configuration/node",
+              "configuration/stats"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/getting-started",
+              "guides/asset-management",
+              "guides/output-management",
+              "guides/development",
+              "guides/production",
+              "guides/code-splitting",
+              "guides/caching",
+              "guides/tree-shaking",
+              "guides/lazy-loading",
+              "guides/shimming",
+              "guides/typescript",
+              "guides/web-workers",
+              "guides/build-performance"
+            ]
+          },
+          {
+            "group": "Loaders",
+            "pages": [
+              "loaders/overview",
+              "loaders/writing-a-loader",
+              "loaders/loader-interface"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "plugins/overview",
+              "plugins/writing-a-plugin",
+              "plugins/plugin-api"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/compiler",
+              "api/compilation",
+              "api/module",
+              "api/chunk",
+              "api/stats"
+            ]
+          },
+          {
+            "group": "Plugin API",
+            "pages": [
+              "api/plugins/compiler-hooks",
+              "api/plugins/compilation-hooks",
+              "api/plugins/parser-hooks",
+              "api/plugins/tapable"
+            ]
+          },
+          {
+            "group": "Loader API",
+            "pages": [
+              "api/loaders/loader-context",
+              "api/loaders/loader-options"
+            ]
+          },
+          {
+            "group": "Node.js API",
+            "pages": [
+              "api/node/webpack",
+              "api/node/compiler-api",
+              "api/node/watching"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "api/cli/commands",
+              "api/cli/flags"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Built-in Plugins",
+        "groups": [
+          {
+            "group": "Core Plugins",
+            "pages": [
+              "built-in-plugins/banner-plugin",
+              "built-in-plugins/clean-plugin",
+              "built-in-plugins/define-plugin",
+              "built-in-plugins/environment-plugin",
+              "built-in-plugins/provide-plugin",
+              "built-in-plugins/source-map-dev-tool-plugin",
+              "built-in-plugins/hot-module-replacement-plugin"
+            ]
+          },
+          {
+            "group": "Optimization Plugins",
+            "pages": [
+              "built-in-plugins/split-chunks-plugin",
+              "built-in-plugins/module-concatenation-plugin",
+              "built-in-plugins/limit-chunk-count-plugin",
+              "built-in-plugins/min-chunk-size-plugin",
+              "built-in-plugins/aggressive-merging-plugin"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Module bundling for ES Modules, CommonJS, and AMD",
+    "Code splitting and lazy loading",
+    "Tree shaking for dead code elimination",
+    "Hot Module Replacement (HMR)",
+    "Extensive plugin system with 180+ built-in plugins",
+    "Loader system for preprocessing files",
+    "Advanced optimization and minification",
+    "Development server with live reloading",
+    "Source map generation",
+    "Asset management and optimization",
+    "Multiple output formats and targets",
+    "Caching and build performance optimization"
+  ],
+  "publicApiSurface": [
+    "webpack(config, callback)",
+    "Compiler class",
+    "Compilation class",
+    "Module",
+    "Chunk",
+    "Stats",
+    "MultiCompiler",
+    "NormalModuleFactory",
+    "ContextModuleFactory",
+    "HotModuleReplacementPlugin",
+    "DefinePlugin",
+    "BannerPlugin",
+    "ProvidePlugin",
+    "EnvironmentPlugin",
+    "SplitChunksPlugin",
+    "ModuleConcatenationPlugin",
+    "CleanPlugin",
+    "SourceMapDevToolPlugin",
+    "LoaderOptionsPlugin",
+    "ProgressPlugin",
+    "Compiler hooks (run, compile, emit, done, etc.)",
+    "Compilation hooks (buildModule, succeedModule, optimizeChunks, etc.)",
+    "Parser hooks (program, statement, expression, etc.)",
+    "Loader context API (this.callback, this.async, this.emitFile, etc.)",
+    "CLI commands (build, watch, serve)"
+  ]
+}
