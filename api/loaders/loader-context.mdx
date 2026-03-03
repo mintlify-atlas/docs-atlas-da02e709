@@ -1,0 +1,761 @@
+---
+title: Loader Context
+description: The loader context API provides methods and properties that loaders can use to interact with webpack.
+---
+
+The loader context is a special object that contains utility methods and properties that are passed to a loader function via `this`. This page documents all methods and properties available on the loader context.
+
+## Context Properties
+
+### version
+
+<ParamField path="version" type="number">
+  The version number of the loader runner. Currently `2`.
+</ParamField>
+
+### context
+
+<ParamField path="context" type="string">
+  The directory of the module being processed. Can be used as context for resolving other modules.
+
+  ```js
+  // Example: '/workspaces/project/src'
+  console.log(this.context);
+  ```
+</ParamField>
+
+### resource
+
+<ParamField path="resource" type="string">
+  The resource path including query and fragment.
+
+  ```js
+  // Example: "/abc/resource.js?query#frag"
+  console.log(this.resource);
+  ```
+</ParamField>
+
+### resourcePath
+
+<ParamField path="resourcePath" type="string">
+  The resource file path without query or fragment.
+
+  ```js
+  // Example: "/abc/resource.js"
+  console.log(this.resourcePath);
+  ```
+</ParamField>
+
+### resourceQuery
+
+<ParamField path="resourceQuery" type="string">
+  The query string of the resource.
+
+  ```js
+  // Example: "?query"
+  console.log(this.resourceQuery);
+  ```
+</ParamField>
+
+### resourceFragment
+
+<ParamField path="resourceFragment" type="string">
+  The fragment of the resource.
+
+  ```js
+  // Example: "#frag"
+  console.log(this.resourceFragment);
+  ```
+</ParamField>
+
+### request
+
+<ParamField path="request" type="string" readonly>
+  The resolved request string including all loaders and the resource.
+</ParamField>
+
+### remainingRequest
+
+<ParamField path="remainingRequest" type="string" readonly>
+  The request string of remaining loaders and the resource.
+</ParamField>
+
+### currentRequest
+
+<ParamField path="currentRequest" type="string" readonly>
+  The request string including current loader, remaining loaders, and the resource.
+</ParamField>
+
+### previousRequest
+
+<ParamField path="previousRequest" type="string" readonly>
+  The request string of already executed loaders.
+</ParamField>
+
+### loaderIndex
+
+<ParamField path="loaderIndex" type="number">
+  The index in the loaders array of the current loader.
+
+  ```js
+  // In loader1: 0, in loader2: 1
+  console.log(this.loaderIndex);
+  ```
+</ParamField>
+
+### data
+
+<ParamField path="data" type="any">
+  A data object shared between the pitch and normal execution. Can be used to pass data between loader phases.
+
+  ```js
+  // In pitch phase
+  module.exports.pitch = function(remainingRequest, precedingRequest, data) {
+    data.value = 42;
+  };
+
+  // In normal execution
+  module.exports = function(content) {
+    console.log(this.data.value); // 42
+    return content;
+  };
+  ```
+</ParamField>
+
+### target
+
+<ParamField path="target" type="string">
+  The compilation target (e.g., "web", "node").
+</ParamField>
+
+### webpack
+
+<ParamField path="webpack" type="boolean">
+  Set to `true` when running in webpack.
+</ParamField>
+
+### mode
+
+<ParamField path="mode" type="'development' | 'production' | 'none'">
+  The webpack mode configuration.
+</ParamField>
+
+### sourceMap
+
+<ParamField path="sourceMap" type="boolean">
+  Indicates whether source maps should be generated.
+</ParamField>
+
+### rootContext
+
+<ParamField path="rootContext" type="string">
+  The root context of the webpack configuration (typically the project root).
+</ParamField>
+
+### fs
+
+<ParamField path="fs" type="InputFileSystem">
+  The file system instance used by webpack. Use this instead of Node.js `fs` for better caching.
+
+  ```js
+  this.fs.readFile(path, (err, data) => {
+    // Handle file reading
+  });
+  ```
+</ParamField>
+
+### loaders
+
+<ParamField path="loaders" type="array">
+  An array of all loaders. Writable in the pitch phase.
+
+  ```js
+  // Each loader object contains:
+  {
+    request: string,
+    path: string,
+    query: string,
+    fragment: string,
+    options: object | string | undefined,
+    ident: string,
+    normal: Function | undefined,
+    pitch: Function | undefined,
+    raw: boolean | undefined,
+    data: object | undefined,
+    pitchExecuted: boolean,
+    normalExecuted: boolean,
+    type: "commonjs" | "module" | undefined
+  }
+  ```
+</ParamField>
+
+### environment
+
+<ParamField path="environment" type="Environment">
+  Tells what kind of ES features may be used in the generated runtime code.
+
+  ```js
+  // Example: { arrowFunction: true }
+  console.log(this.environment);
+  ```
+</ParamField>
+
+## Callback Methods
+
+### callback
+
+<ParamField path="callback" type="function">
+  A function that can be called synchronously or asynchronously to return multiple values. Signature:
+
+  ```ts
+  callback(
+    err: Error | null,
+    content?: string | Buffer,
+    sourceMap?: string | SourceMap,
+    additionalData?: { webpackAST?: object, [key: string]: any }
+  ): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    // Return transformed source with source map
+    this.callback(null, transformedSource, sourceMap);
+  };
+  ```
+
+  The first argument must be an `Error` or `null`. The second argument is the transformed source as a `string` or `Buffer`. Optional third argument is a source map. Optional fourth argument can contain metadata like the AST.
+</ParamField>
+
+### async
+
+<ParamField path="async" type="function">
+  Tells webpack that this loader will be called asynchronously. Returns `this.callback`.
+
+  ```js
+  module.exports = function(source) {
+    const callback = this.async();
+    
+    someAsyncOperation(source, (err, result) => {
+      if (err) return callback(err);
+      callback(null, result);
+    });
+  };
+  ```
+</ParamField>
+
+## Dependency Tracking
+
+### addDependency
+
+<ParamField path="addDependency" type="function">
+  Adds a file as a dependency of the loader result to make it watchable.
+
+  ```js
+  addDependency(file: string): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    const configPath = path.resolve(__dirname, 'config.json');
+    this.addDependency(configPath);
+    // Read and use config...
+    return source;
+  };
+  ```
+</ParamField>
+
+### dependency
+
+<ParamField path="dependency" type="function">
+  Alias of `addDependency`. Adds a file as a dependency.
+
+  ```js
+  dependency(file: string): void
+  ```
+</ParamField>
+
+### addContextDependency
+
+<ParamField path="addContextDependency" type="function">
+  Adds a directory as a dependency of the loader result.
+
+  ```js
+  addContextDependency(directory: string): void
+  ```
+
+  ```js
+  module.exports = function() {
+    const directory = path.resolve(__dirname, 'templates');
+    this.addContextDependency(directory);
+    
+    const callback = this.async();
+    this.fs.readdir(directory, (err, files) => {
+      // Process directory files...
+      callback(null, result);
+    });
+  };
+  ```
+</ParamField>
+
+### addMissingDependency
+
+<ParamField path="addMissingDependency" type="function">
+  Adds a missing file or directory as a dependency.
+
+  ```js
+  addMissingDependency(file: string): void
+  ```
+</ParamField>
+
+### clearDependencies
+
+<ParamField path="clearDependencies" type="function">
+  Removes all dependencies of the loader result, including initial dependencies.
+
+  ```js
+  clearDependencies(): void
+  ```
+</ParamField>
+
+### getDependencies
+
+<ParamField path="getDependencies" type="function">
+  Returns an array of all file dependencies.
+
+  ```js
+  getDependencies(): string[]
+  ```
+</ParamField>
+
+### getContextDependencies
+
+<ParamField path="getContextDependencies" type="function">
+  Returns an array of all directory dependencies.
+
+  ```js
+  getContextDependencies(): string[]
+  ```
+</ParamField>
+
+### getMissingDependencies
+
+<ParamField path="getMissingDependencies" type="function">
+  Returns an array of all missing dependencies.
+
+  ```js
+  getMissingDependencies(): string[]
+  ```
+</ParamField>
+
+### addBuildDependency
+
+<ParamField path="addBuildDependency" type="function">
+  Adds a build dependency (e.g., loader files themselves).
+
+  ```js
+  addBuildDependency(file: string): void
+  ```
+</ParamField>
+
+## Module Resolution
+
+### resolve
+
+<ParamField path="resolve" type="function">
+  Resolves a request like a `require` expression.
+
+  ```js
+  resolve(context: string, request: string, callback: (err: Error | null, result?: string) => void): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    const callback = this.async();
+    
+    this.resolve(this.context, './module', (err, result) => {
+      if (err) return callback(err);
+      // Use resolved path...
+      callback(null, source);
+    });
+  };
+  ```
+</ParamField>
+
+### getResolve
+
+<ParamField path="getResolve" type="function">
+  Creates a resolve function with custom options.
+
+  ```js
+  getResolve(options?: ResolveOptions): 
+    ((context: string, request: string, callback: ResolveCallback) => void) &
+    ((context: string, request: string) => Promise<string>)
+  ```
+
+  ```js
+  module.exports = function(source) {
+    const resolve = this.getResolve({
+      extensions: ['.ts', '.js']
+    });
+    
+    // Callback style
+    resolve(this.context, './module', (err, result) => {
+      // Handle resolution
+    });
+    
+    // Promise style
+    return resolve(this.context, './module').then(result => {
+      // Use resolved path
+      return transformedSource;
+    });
+  };
+  ```
+</ParamField>
+
+## File Emission
+
+### emitFile
+
+<ParamField path="emitFile" type="function">
+  Emits a file to the output directory.
+
+  ```js
+  emitFile(
+    name: string,
+    content: string | Buffer,
+    sourceMap?: string,
+    assetInfo?: AssetInfo
+  ): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    // Emit an additional asset
+    this.emitFile('extra-file.js', source);
+    return '';
+  };
+  ```
+</ParamField>
+
+## Error and Warning Handling
+
+### emitWarning
+
+<ParamField path="emitWarning" type="function">
+  Emits a warning that will be displayed in the webpack output.
+
+  ```js
+  emitWarning(warning: Error): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    if (deprecatedPattern.test(source)) {
+      this.emitWarning(new Error('Using deprecated syntax'));
+    }
+    return source;
+  };
+  ```
+</ParamField>
+
+### emitError
+
+<ParamField path="emitError" type="function">
+  Emits an error. Unlike throwing an error, this will not interrupt compilation.
+
+  ```js
+  emitError(error: Error): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    try {
+      return transform(source);
+    } catch (err) {
+      this.emitError(err);
+      return source;
+    }
+  };
+  ```
+</ParamField>
+
+## Utilities
+
+### getOptions
+
+<ParamField path="getOptions" type="function">
+  Extracts and validates loader options.
+
+  ```js
+  getOptions(schema?: Schema): OptionsType
+  ```
+
+  ```js
+  const schema = {
+    type: 'object',
+    properties: {
+      name: { type: 'string' }
+    }
+  };
+  
+  module.exports = function(source) {
+    const options = this.getOptions(schema);
+    console.log(options.name);
+    return source;
+  };
+  ```
+</ParamField>
+
+### getLogger
+
+<ParamField path="getLogger" type="function">
+  Gets a logger instance for the loader.
+
+  ```js
+  getLogger(name?: string): Logger
+  ```
+
+  ```js
+  module.exports = function(source) {
+    const logger = this.getLogger('my-loader');
+    logger.info('Processing file:', this.resourcePath);
+    logger.warn('Deprecated option used');
+    return source;
+  };
+  ```
+</ParamField>
+
+### cacheable
+
+<ParamField path="cacheable" type="function">
+  Controls whether the loader result should be cacheable. By default, loader results are cacheable.
+
+  ```js
+  cacheable(flag?: boolean): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    // Disable caching for non-deterministic loaders
+    this.cacheable(false);
+    
+    // Add timestamp or random data
+    return source + `\n// Generated at ${Date.now()}`;
+  };
+  ```
+</ParamField>
+
+### utils
+
+<ParamField path="utils" type="object">
+  Utility functions for path manipulation and hashing.
+
+  ```js
+  utils: {
+    absolutify: (context: string, request: string) => string,
+    contextify: (context: string, request: string) => string,
+    createHash: (algorithm?: string) => Hash
+  }
+  ```
+
+  ```js
+  module.exports = function(source) {
+    const relativePath = this.utils.contextify(
+      this.context,
+      this.resourcePath
+    );
+    
+    const hash = this.utils.createHash('md5');
+    hash.update(source);
+    const digest = hash.digest('hex');
+    
+    return `module.exports = {
+      path: ${JSON.stringify(relativePath)},
+      hash: ${JSON.stringify(digest)}
+    };`;
+  };
+  ```
+</ParamField>
+
+## Module Loading
+
+### loadModule
+
+<ParamField path="loadModule" type="function">
+  Resolves and loads a module, applying all configured loaders.
+
+  ```js
+  loadModule(
+    request: string,
+    callback: (err: Error | null, source?: string | Buffer, sourceMap?: object, module?: Module) => void
+  ): void
+  ```
+
+  ```js
+  module.exports = function(source) {
+    const callback = this.async();
+    
+    this.loadModule('./template.html', (err, source) => {
+      if (err) return callback(err);
+      // Use loaded module source
+      callback(null, processTemplate(source));
+    });
+  };
+  ```
+</ParamField>
+
+### importModule
+
+<ParamField path="importModule" type="function">
+  Imports and executes a module, returning its exports.
+
+  ```js
+  importModule(
+    request: string,
+    options?: { baseUri?: string },
+    callback?: (err: Error | null, exports?: any) => void
+  ): Promise<any>
+  ```
+
+  ```js
+  module.exports = function(source) {
+    const callback = this.async();
+    
+    this.importModule(
+      './config.js',
+      { baseUri: 'webpack://' },
+      (err, exports) => {
+        if (err) return callback(err);
+        // Use module exports
+        callback(null, processWithConfig(source, exports));
+      }
+    );
+  };
+  ```
+</ParamField>
+
+## Hash Configuration
+
+### hashFunction
+
+<ParamField path="hashFunction" type="string">
+  The hash function to use (e.g., 'md5', 'sha256').
+</ParamField>
+
+### hashDigest
+
+<ParamField path="hashDigest" type="string">
+  The encoding to use for the hash digest (e.g., 'hex', 'base64').
+</ParamField>
+
+### hashDigestLength
+
+<ParamField path="hashDigestLength" type="number">
+  The maximum length of the hash digest.
+</ParamField>
+
+### hashSalt
+
+<ParamField path="hashSalt" type="string | undefined">
+  An optional salt for hashing.
+</ParamField>
+
+## Internal Properties
+
+### _module
+
+<ParamField path="_module" type="NormalModule | undefined">
+  The webpack NormalModule instance. Use with caution as this is an internal property.
+</ParamField>
+
+### _compilation
+
+<ParamField path="_compilation" type="Compilation | undefined">
+  The webpack Compilation instance. Use with caution as this is an internal property.
+</ParamField>
+
+### _compiler
+
+<ParamField path="_compiler" type="Compiler | undefined">
+  The webpack Compiler instance. Use with caution as this is an internal property.
+</ParamField>
+
+## Hot Module Replacement
+
+### hot
+
+<ParamField path="hot" type="boolean | undefined">
+  Set to `true` when Hot Module Replacement is enabled. Added by HotModuleReplacementPlugin.
+
+  ```js
+  module.exports = function(source) {
+    if (this.hot) {
+      // Add HMR code
+      return source + '\nif (module.hot) { module.hot.accept(); }';
+    }
+    return source;
+  };
+  ```
+</ParamField>
+
+## Complete Example
+
+Here's a comprehensive example demonstrating multiple loader context features:
+
+```js
+const path = require('path');
+
+module.exports = function(source) {
+  // Get loader options with validation
+  const options = this.getOptions({
+    type: 'object',
+    properties: {
+      format: { type: 'string', enum: ['esm', 'cjs'] }
+    }
+  });
+
+  // Get logger
+  const logger = this.getLogger('example-loader');
+  logger.info(`Processing ${this.resourcePath}`);
+
+  // Make loader async
+  const callback = this.async();
+
+  // Track dependencies
+  const configFile = path.resolve(this.context, 'config.json');
+  this.addDependency(configFile);
+
+  // Read config file using webpack's fs
+  this.fs.readFile(configFile, 'utf-8', (err, configData) => {
+    if (err) {
+      logger.error('Failed to read config');
+      return callback(err);
+    }
+
+    try {
+      const config = JSON.parse(configData);
+      
+      // Transform source based on config
+      const transformed = transform(source, config, options);
+      
+      // Create source map
+      const sourceMap = createSourceMap(source, transformed);
+      
+      // Emit additional asset
+      this.emitFile(
+        'metadata.json',
+        JSON.stringify({ config, options }),
+        null,
+        { sourceFilename: this.resourcePath }
+      );
+      
+      // Return transformed source with source map
+      callback(null, transformed, sourceMap);
+    } catch (transformErr) {
+      logger.error('Transform failed:', transformErr);
+      this.emitError(transformErr);
+      callback(null, source);
+    }
+  });
+};
+```

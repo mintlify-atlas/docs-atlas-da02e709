@@ -1,0 +1,182 @@
+---
+title: Loaders Overview
+description: Understanding webpack loaders and how they transform your source files
+---
+
+## What are Loaders?
+
+Loaders are transformations that are applied to the source code of a module. They allow you to preprocess files as you import or "load" them. Loaders can transform files from different languages (like TypeScript) to JavaScript, or load inline images as data URLs. Loaders even allow you to import CSS files directly from your JavaScript modules.
+
+## Loader Execution
+
+Loaders are executed in reverse order:
+- The last loader in the configuration is executed first
+- The first loader in the configuration is executed last
+- The last loader returns JavaScript and an optional source map
+- All other loaders can return source in any arbitrary format (which is passed to the next loader)
+
+## Loader Chain Example
+
+```javascript
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: [
+          { loader: 'style-loader' },  // 3. Injects CSS into DOM
+          { loader: 'css-loader' },    // 2. Converts CSS to JS module
+          { loader: 'sass-loader' }    // 1. Compiles Sass to CSS
+        ]
+      }
+    ]
+  }
+};
+```
+
+## Loader Types
+
+### Synchronous Loaders
+
+Return the transformed content directly:
+
+```javascript
+module.exports = function(content, map, meta) {
+  return someSyncOperation(content);
+};
+```
+
+### Asynchronous Loaders
+
+Use the callback for async operations:
+
+```javascript
+module.exports = function(content, map, meta) {
+  const callback = this.async();
+  someAsyncOperation(content, (err, result) => {
+    if (err) return callback(err);
+    callback(null, result, map, meta);
+  });
+};
+```
+
+### Raw Loaders
+
+Receive content as a Buffer:
+
+```javascript
+module.exports = function(content) {
+  // content is a Buffer
+  assert(content instanceof Buffer);
+  return somethingWithBinaryData(content);
+};
+module.exports.raw = true;
+```
+
+## Pitching Loaders
+
+Loaders are called from right to left, but in some cases, loaders don't care about the results of the previous loader or the resource. The `pitch` method is called from left to right before the loaders are executed.
+
+```javascript
+module.exports = function(content) {
+  return someSyncOperation(content);
+};
+
+module.exports.pitch = function(remainingRequest, previousRequest, data) {
+  // Can return a value to skip remaining loaders
+  if (someCondition()) {
+    return `module.exports = require(${JSON.stringify(remainingRequest)});`;
+  }
+};
+```
+
+## Loader Context
+
+Inside a loader, the `this` context provides access to the loader API. See [Loader Interface](/loaders/loader-interface) for the complete API reference.
+
+### Commonly Used Context Methods
+
+```javascript
+module.exports = function(content) {
+  // Add a file as a dependency
+  this.addDependency(filepath);
+  
+  // Add a directory as a dependency
+  this.addContextDependency(dirpath);
+  
+  // Emit a warning
+  this.emitWarning(new Error('Something is deprecated'));
+  
+  // Emit an error (but don't fail the compilation)
+  this.emitError(new Error('Something went wrong'));
+  
+  // Emit a file
+  this.emitFile('filename.ext', content);
+  
+  // Get loader options
+  const options = this.getOptions();
+  
+  return transformedContent;
+};
+```
+
+## Loader Resolution
+
+Loaders are resolved relative to the webpack configuration file. They can be:
+
+- Packages installed from npm: `'babel-loader'`
+- Relative paths: `'./loaders/my-loader'`
+- Absolute paths: `'/absolute/path/to/loader'`
+
+## Inline Loaders
+
+You can specify loaders in an import statement:
+
+```javascript
+import Styles from 'style-loader!css-loader?modules!./styles.css';
+```
+
+<Note>
+  Use inline loaders sparingly. Prefer configuring loaders in the webpack configuration.
+</Note>
+
+## Loader Options
+
+Loaders can be configured with options:
+
+```javascript
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: [
+          { loader: 'style-loader' },
+          {
+            loader: 'css-loader',
+            options: {
+              modules: true,
+              importLoaders: 1
+            }
+          }
+        ]
+      }
+    ]
+  }
+};
+```
+
+## Best Practices
+
+1. **Keep loaders simple** - Each loader should do one thing and do it well
+2. **Make loaders chainable** - Don't assume you're the first or last loader
+3. **Use loader utilities** - Use the `loader-utils` package for common tasks
+4. **Mark dependencies** - Use `this.addDependency()` to ensure proper rebuilding
+5. **Handle errors properly** - Use `this.emitError()` for errors and `this.emitWarning()` for warnings
+6. **Make loaders stateless** - Don't rely on state between loader executions
+7. **Use schema validation** - Validate loader options using schema-utils
+
+## Next Steps
+
+- [Writing a Loader](/loaders/writing-a-loader) - Learn how to create your own loader
+- [Loader Interface](/loaders/loader-interface) - Complete API reference for the loader context

@@ -1,0 +1,429 @@
+---
+title: Plugins Overview
+description: Understanding webpack plugins and how they extend the build process
+---
+
+## What are Plugins?
+
+Plugins are the backbone of webpack. They expose the full potential of the webpack engine to third-party developers. Using staged build callbacks, developers can introduce their own behaviors into the webpack build process. Plugins are more powerful than loaders and can access webpack's entire compilation lifecycle.
+
+## Plugin Architecture
+
+Webpack's plugin architecture is powered by [tapable](https://github.com/webpack/tapable), a small library that enables webpack to create and use plugins. Tapable provides various hooks that plugins can tap into at different stages of the compilation process.
+
+## Basic Plugin Structure
+
+A webpack plugin is a JavaScript object that has an `apply` method. This method is called by the webpack compiler, giving the plugin access to the entire compilation lifecycle.
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('MyPlugin', (stats) => {
+      console.log('Build completed!');
+    });
+  }
+}
+
+module.exports = MyPlugin;
+```
+
+## Using Plugins
+
+Plugins are added to the webpack configuration:
+
+```javascript
+const MyPlugin = require('./my-plugin');
+
+module.exports = {
+  plugins: [
+    new MyPlugin(options)
+  ]
+};
+```
+
+## Compiler Hooks
+
+The `compiler` object represents the fully configured webpack environment. It provides hooks for the entire lifecycle of a build.
+
+### Common Compiler Hooks
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    // Runs before compilation starts
+    compiler.hooks.beforeRun.tapAsync('MyPlugin', (compiler, callback) => {
+      console.log('Starting build...');
+      callback();
+    });
+    
+    // Runs after compilation completes
+    compiler.hooks.done.tap('MyPlugin', (stats) => {
+      console.log('Build finished!');
+    });
+    
+    // Runs before emitting assets
+    compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+      console.log('Emitting assets...');
+      callback();
+    });
+    
+    // Access the compilation
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      console.log('Compilation created');
+    });
+  }
+}
+```
+
+### Compiler Hook Reference
+
+| Hook | Type | Description |
+|------|------|-------------|
+| `initialize` | SyncHook | Called when the compiler is initialized |
+| `environment` | SyncHook | Called when the environment is setup |
+| `afterEnvironment` | SyncHook | Called after environment setup |
+| `entryOption` | SyncBailHook | Called after entry configuration is processed |
+| `afterPlugins` | SyncHook | Called after all plugins are applied |
+| `afterResolvers` | SyncHook | Called after resolvers are setup |
+| `beforeRun` | AsyncSeriesHook | Called before running the compiler |
+| `run` | AsyncSeriesHook | Called when the compiler starts running |
+| `beforeCompile` | AsyncSeriesHook | Called before compilation parameters are created |
+| `compile` | SyncHook | Called when a new compilation is created |
+| `thisCompilation` | SyncHook | Called before the compilation hook |
+| `compilation` | SyncHook | Called when a compilation is created |
+| `make` | AsyncParallelHook | Called when compilation starts building modules |
+| `afterCompile` | AsyncSeriesHook | Called after compilation finishes |
+| `emit` | AsyncSeriesHook | Called before emitting assets |
+| `afterEmit` | AsyncSeriesHook | Called after emitting assets |
+| `done` | AsyncSeriesHook | Called when compilation is done |
+| `failed` | SyncHook | Called when compilation fails |
+| `watchRun` | AsyncSeriesHook | Called when watch mode starts |
+| `watchClose` | SyncHook | Called when watch mode stops |
+
+## Compilation Hooks
+
+The `compilation` object represents a single build of versioned assets. It provides hooks for module and asset manipulation.
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      // Optimize assets
+      compilation.hooks.optimizeAssets.tapAsync(
+        'MyPlugin',
+        (assets, callback) => {
+          Object.keys(assets).forEach(name => {
+            // Modify asset
+            assets[name] = optimizeAsset(assets[name]);
+          });
+          callback();
+        }
+      );
+      
+      // Process additional assets
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'MyPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+        },
+        (assets) => {
+          // Process assets
+        }
+      );
+    });
+  }
+}
+```
+
+### Compilation Hook Reference
+
+| Hook | Type | Description |
+|------|------|-------------|
+| `buildModule` | SyncHook | Before a module is built |
+| `succeedModule` | SyncHook | After a module is successfully built |
+| `finishModules` | AsyncSeriesHook | All modules have been built |
+| `optimizeDependencies` | SyncBailHook | Optimize module dependencies |
+| `optimizeModules` | SyncBailHook | Optimize modules |
+| `afterOptimizeModules` | SyncHook | After module optimization |
+| `optimizeChunks` | SyncBailHook | Optimize chunks |
+| `afterOptimizeChunks` | SyncHook | After chunk optimization |
+| `optimizeTree` | AsyncSeriesHook | Optimize module and chunk tree |
+| `optimizeChunkModules` | AsyncSeriesBailHook | Optimize chunk modules |
+| `processAssets` | AsyncSeriesHook | Process assets before emit |
+| `afterProcessAssets` | SyncHook | After assets are processed |
+| `optimizeAssets` | AsyncSeriesHook | Optimize assets |
+| `afterOptimizeAssets` | SyncHook | After asset optimization |
+
+## Hook Types
+
+Webpack uses different types of hooks from tapable:
+
+### SyncHook
+
+Synchronous hook, taps are called sequentially.
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+  // Synchronous operation
+});
+```
+
+### AsyncSeriesHook
+
+Asynchronous hook, taps are called sequentially. Use `tapAsync` or `tapPromise`.
+
+```javascript
+// Using callback
+compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+  doSomethingAsync(() => {
+    callback();
+  });
+});
+
+// Using promises
+compiler.hooks.emit.tapPromise('MyPlugin', async (compilation) => {
+  await doSomethingAsync();
+});
+```
+
+### AsyncParallelHook
+
+Asynchronous hook, taps are called in parallel.
+
+```javascript
+compiler.hooks.make.tapAsync('MyPlugin', (compilation, callback) => {
+  // Runs in parallel with other taps
+  compilation.addEntry('./src/entry.js', callback);
+});
+```
+
+### SyncBailHook
+
+Synchronous hook that can return early. If a tap returns a non-undefined value, the hook bails.
+
+```javascript
+compiler.hooks.shouldEmit.tap('MyPlugin', (compilation) => {
+  // Return false to prevent emit
+  if (compilation.errors.length > 0) {
+    return false;
+  }
+});
+```
+
+## Working with Assets
+
+Plugins can manipulate compilation assets:
+
+```javascript
+const { RawSource } = require('webpack-sources');
+
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'MyPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+        },
+        (assets) => {
+          // Read an asset
+          const asset = assets['main.js'];
+          const content = asset.source();
+          
+          // Modify an asset
+          assets['main.js'] = new RawSource(
+            content + '\n// Added by MyPlugin'
+          );
+          
+          // Create a new asset
+          assets['generated.txt'] = new RawSource('Generated content');
+          
+          // Delete an asset
+          delete assets['unwanted.js'];
+        }
+      );
+    });
+  }
+}
+```
+
+## Asset Processing Stages
+
+The `processAssets` hook has different stages:
+
+```javascript
+Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL       // -2000
+Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS      // -1000
+Compilation.PROCESS_ASSETS_STAGE_DERIVED          //  -200
+Compilation.PROCESS_ASSETS_STAGE_ADDITIONS        //  -100
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE         //   100
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COUNT   //   200
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY // 300
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE    //   400
+Compilation.PROCESS_ASSETS_STAGE_DEV_TOOLING      //   500
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE  //   700
+Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE        //  1000
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_HASH    //  2500
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER // 3000
+Compilation.PROCESS_ASSETS_STAGE_ANALYSE          //  4000
+Compilation.PROCESS_ASSETS_STAGE_REPORT           //  5000
+```
+
+## Real-World Examples
+
+### BannerPlugin (Built-in)
+
+Adds a banner to the top of each generated chunk:
+
+```javascript
+const { ConcatSource } = require('webpack-sources');
+
+class BannerPlugin {
+  constructor(options) {
+    this.options = options;
+  }
+  
+  apply(compiler) {
+    const options = this.options;
+    
+    compiler.hooks.compilation.tap('BannerPlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'BannerPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+        },
+        () => {
+          for (const chunk of compilation.chunks) {
+            for (const file of chunk.files) {
+              const comment = '/*! Banner text */';
+              compilation.updateAsset(file, (old) => {
+                return new ConcatSource(comment, '\n', old);
+              });
+            }
+          }
+        }
+      );
+    });
+  }
+}
+```
+
+### EnvironmentPlugin (Built-in)
+
+Exposes environment variables to the application:
+
+```javascript
+class EnvironmentPlugin {
+  constructor(keys) {
+    this.keys = keys;
+  }
+  
+  apply(compiler) {
+    compiler.hooks.thisCompilation.tap('EnvironmentPlugin', (compilation) => {
+      const definitions = {};
+      
+      for (const key of this.keys) {
+        const value = process.env[key];
+        definitions[`process.env.${key}`] = JSON.stringify(value);
+      }
+      
+      // Use DefinePlugin to replace values
+      new DefinePlugin(definitions).apply(compiler);
+    });
+  }
+}
+```
+
+## Plugin Options
+
+Plugins typically accept an options object:
+
+```javascript
+class MyPlugin {
+  constructor(options = {}) {
+    this.options = {
+      enabled: true,
+      ...options
+    };
+  }
+  
+  apply(compiler) {
+    if (!this.options.enabled) return;
+    
+    // Plugin logic
+  }
+}
+
+// Usage
+module.exports = {
+  plugins: [
+    new MyPlugin({
+      enabled: true,
+      customOption: 'value'
+    })
+  ]
+};
+```
+
+## Accessing Webpack Configuration
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    // Access webpack options
+    const options = compiler.options;
+    
+    console.log('Output path:', options.output.path);
+    console.log('Mode:', options.mode);
+    console.log('Entry:', options.entry);
+  }
+}
+```
+
+## Logging
+
+Plugins should use webpack's logging infrastructure:
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    const logger = compiler.getInfrastructureLogger('MyPlugin');
+    
+    logger.log('Plugin initialized');
+    logger.warn('Deprecated option used');
+    logger.error('Something went wrong');
+    
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      const compLogger = compilation.getLogger('MyPlugin');
+      compLogger.info('Processing compilation');
+    });
+  }
+}
+```
+
+## Best Practices
+
+1. **Use a clear plugin name** - Use PascalCase and end with "Plugin"
+2. **Validate options** - Use schema validation for plugin options
+3. **Use appropriate hooks** - Choose the right hook for your use case
+4. **Handle errors properly** - Don't throw errors, emit them through compilation
+5. **Use logging** - Use webpack's logging infrastructure
+6. **Be mindful of performance** - Cache results when possible
+7. **Clean up resources** - Remove listeners and free memory when appropriate
+8. **Document your plugin** - Provide clear documentation and examples
+
+## Common Use Cases
+
+- **Code transformation** - Modify generated code or assets
+- **Asset generation** - Create new files during compilation
+- **Build optimization** - Optimize modules, chunks, or assets
+- **Environment configuration** - Inject environment-specific variables
+- **Progress reporting** - Display build progress and statistics
+- **Error handling** - Custom error reporting and handling
+- **Module resolution** - Customize how modules are resolved
+- **Hot Module Replacement** - Implement custom HMR behavior
+
+## Next Steps
+
+- [Writing a Plugin](/plugins/writing-a-plugin) - Learn how to create your own plugin
+- [Plugin API](/plugins/plugin-api) - Complete API reference for plugin hooks

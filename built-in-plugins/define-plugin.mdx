@@ -1,0 +1,271 @@
+---
+title: DefinePlugin
+description: Create global constants that can be configured at compile time
+---
+
+Allows you to create global constants which can be configured at compile time. This is useful for allowing different behavior between development and production builds.
+
+## Usage
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.DefinePlugin({
+      PRODUCTION: JSON.stringify(true),
+      VERSION: JSON.stringify('1.0.0'),
+      'process.env.NODE_ENV': JSON.stringify('production')
+    })
+  ]
+};
+```
+
+## Constructor
+
+```js
+new webpack.DefinePlugin(definitions);
+```
+
+**Parameters:**
+
+- `definitions` (Object): An object whose keys are identifiers or member expressions and values are code values
+
+## Options
+
+<ParamField path="definitions" type="object" required>
+  An object where keys represent the identifiers to replace and values are the replacement values.
+
+  Each value is directly inserted into the code, so:
+  - Strings need to be double-quoted: `JSON.stringify('value')`
+  - Numbers, booleans, and other primitives can be used directly
+  - Objects and arrays are stringified
+
+  ```js
+  new webpack.DefinePlugin({
+    VERSION: JSON.stringify('1.2.3'),
+    DEBUG: true,
+    MAX_COUNT: 100,
+    'process.env.API_URL': JSON.stringify('https://api.example.com')
+  });
+  ```
+</ParamField>
+
+## Value Types
+
+The DefinePlugin supports various value types:
+
+### Primitives
+
+```js
+new webpack.DefinePlugin({
+  NUMBER: 42,
+  STRING: JSON.stringify('hello'),
+  BOOLEAN: true,
+  NULL: null,
+  UNDEFINED: undefined,
+  BIGINT: 9007199254740991n
+});
+```
+
+### Objects and Arrays
+
+```js
+new webpack.DefinePlugin({
+  CONFIG: {
+    API_URL: JSON.stringify('https://api.example.com'),
+    TIMEOUT: 5000
+  },
+  FEATURES: ['feature1', 'feature2']
+});
+```
+
+### Functions
+
+```js
+new webpack.DefinePlugin({
+  CURRENT_YEAR: () => new Date().getFullYear(),
+  GREETING: function() { return 'Hello'; }
+});
+```
+
+### typeof Expressions
+
+```js
+new webpack.DefinePlugin({
+  'typeof window': JSON.stringify('object'),
+  'typeof process': JSON.stringify('undefined')
+});
+```
+
+## Runtime Values
+
+For values that need to be computed at build time based on the module being built:
+
+```js
+const webpack = require('webpack');
+
+new webpack.DefinePlugin({
+  BUILD_TIME: webpack.DefinePlugin.runtimeValue(
+    () => JSON.stringify(new Date().toISOString()),
+    true // Track all file dependencies
+  ),
+  VERSION: webpack.DefinePlugin.runtimeValue(
+    ({ version }) => {
+      return JSON.stringify(version);
+    },
+    {
+      fileDependencies: ['package.json']
+    }
+  )
+});
+```
+
+### DefinePlugin.runtimeValue()
+
+```js
+webpack.DefinePlugin.runtimeValue(fn, options)
+```
+
+<ParamField path="fn" type="function" required>
+  Generator function that receives an object with:
+  - `module`: The current module being processed
+  - `key`: The definition key
+  - `version`: Cache version for this value
+
+  Should return a primitive value (string, number, boolean, etc.)
+</ParamField>
+
+<ParamField path="options" type="boolean | object">
+  Options for dependency tracking:
+
+  - `true`: Makes the module non-cacheable
+  - Object with properties:
+    - `fileDependencies`: Array of file paths to watch
+    - `contextDependencies`: Array of directory paths to watch
+    - `missingDependencies`: Array of missing file paths
+    - `buildDependencies`: Array of build dependency paths
+    - `version`: String or function returning a version string
+</ParamField>
+
+## Examples
+
+### Environment-Specific Builds
+
+```js
+const isProduction = process.env.NODE_ENV === 'production';
+
+new webpack.DefinePlugin({
+  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+  PRODUCTION: isProduction,
+  DEVELOPMENT: !isProduction,
+  API_URL: JSON.stringify(
+    isProduction
+      ? 'https://api.production.com'
+      : 'http://localhost:3000'
+  )
+});
+```
+
+### Feature Flags
+
+```js
+new webpack.DefinePlugin({
+  __FEATURE_A__: JSON.stringify(true),
+  __FEATURE_B__: JSON.stringify(false),
+  __EXPERIMENTAL__: JSON.stringify(process.env.ENABLE_EXPERIMENTAL === 'true')
+});
+```
+
+### Version Information
+
+```js
+const package = require('./package.json');
+
+new webpack.DefinePlugin({
+  __VERSION__: JSON.stringify(package.version),
+  __BUILD_DATE__: JSON.stringify(new Date().toISOString()),
+  __COMMIT_HASH__: JSON.stringify(process.env.GIT_COMMIT || 'dev')
+});
+```
+
+### Removing Debug Code in Production
+
+```js
+// webpack.config.js
+new webpack.DefinePlugin({
+  __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production')
+});
+
+// In your code:
+if (__DEV__) {
+  console.log('Debug information');
+  // This entire block will be removed in production builds
+}
+```
+
+### Complex Nested Objects
+
+```js
+new webpack.DefinePlugin({
+  CONFIG: {
+    APP: {
+      NAME: JSON.stringify('MyApp'),
+      VERSION: JSON.stringify('1.0.0')
+    },
+    API: {
+      BASE_URL: JSON.stringify('https://api.example.com'),
+      TIMEOUT: 5000
+    },
+    FEATURES: {
+      ENABLE_ANALYTICS: true,
+      ENABLE_LOGGING: process.env.NODE_ENV !== 'production'
+    }
+  }
+});
+
+// Usage:
+console.log(CONFIG.APP.NAME); // 'MyApp'
+console.log(CONFIG.API.TIMEOUT); // 5000
+```
+
+## Important Notes
+
+1. **String Values**: Always use `JSON.stringify()` for string values, otherwise the value will be inserted as an identifier:
+   ```js
+   // Wrong - will look for a variable named MyValue
+   MY_STRING: 'MyValue'
+   
+   // Correct - will insert the string 'MyValue'
+   MY_STRING: JSON.stringify('MyValue')
+   ```
+
+2. **Tree Shaking**: The DefinePlugin enables dead code elimination. Webpack will remove unreachable code based on defined constants.
+
+3. **Process Replacement**: The plugin can replace `process.env.NODE_ENV` which is commonly used by libraries to determine build mode.
+
+4. **Module Concatenation**: Using certain features (like `module.hot`) will prevent module concatenation optimization.
+
+## Hooks
+
+The plugin exposes compilation hooks:
+
+```js
+const { DefinePlugin } = require('webpack');
+
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      const hooks = DefinePlugin.getCompilationHooks(compilation);
+      
+      hooks.definitions.tap('MyPlugin', (definitions) => {
+        // Add or modify definitions
+        return {
+          ...definitions,
+          MY_CUSTOM_DEFINE: JSON.stringify('value')
+        };
+      });
+    });
+  }
+}
+```

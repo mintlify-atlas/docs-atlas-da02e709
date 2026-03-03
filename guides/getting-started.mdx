@@ -1,0 +1,181 @@
+---
+title: Getting Started
+description: Learn how to install and configure webpack for your first bundle
+---
+
+Learn how to bundle JavaScript applications with webpack. This guide walks you through installing webpack and creating your first configuration.
+
+## Installation
+
+<Steps>
+  <Step title="Initialize your project">
+    Create a new directory and initialize npm:
+    
+    ```bash
+    mkdir my-webpack-project
+    cd my-webpack-project
+    npm init -y
+    ```
+  </Step>
+
+  <Step title="Install webpack">
+    Install webpack and webpack-cli as dev dependencies:
+    
+    ```bash
+    npm install --save-dev webpack webpack-cli
+    ```
+  </Step>
+
+  <Step title="Create project structure">
+    Set up your basic project structure:
+    
+    ```bash
+    mkdir src
+    touch src/index.js
+    touch webpack.config.js
+    ```
+  </Step>
+
+  <Step title="Create your first module">
+    Add some code to `src/index.js`:
+    
+    ```javascript src/index.js
+    function component() {
+      const element = document.createElement('div');
+      element.innerHTML = 'Hello webpack';
+      return element;
+    }
+    
+    document.body.appendChild(component());
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    Create a basic webpack configuration:
+    
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      entry: './src/index.js',
+      output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'dist')
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Add build script">
+    Update your `package.json` with a build script:
+    
+    ```json package.json
+    {
+      "scripts": {
+        "build": "webpack"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Build your bundle">
+    Run the build command:
+    
+    ```bash
+    npm run build
+    ```
+    
+    This creates a `dist/bundle.js` file with your bundled code.
+  </Step>
+</Steps>
+
+## Using the Bundle
+
+Create an `index.html` file to use your bundle:
+
+```html index.html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Getting Started</title>
+  </head>
+  <body>
+    <script src="dist/bundle.js"></script>
+  </body>
+</html>
+```
+
+<Tip>
+  Keep your source code in `src/` and distribute bundles from `dist/`. This separation makes your project easier to maintain.
+</Tip>
+
+## NPM Scripts
+
+You can add different build modes:
+
+```json package.json
+{
+  "scripts": {
+    "build": "webpack --mode=production",
+    "build:dev": "webpack --mode=development",
+    "watch": "webpack --watch"
+  }
+}
+```
+
+<Note>
+  Development mode (`--mode=development`) includes useful debugging features, while production mode (`--mode=production`) optimizes your bundle for deployment.
+</Note>
+
+## Configuration Options
+
+<CodeGroup>
+```javascript Basic Configuration
+const path = require('path');
+
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+```javascript With Mode
+const path = require('path');
+
+module.exports = {
+  mode: 'development',
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+```javascript Multiple Entry Points
+const path = require('path');
+
+module.exports = {
+  entry: {
+    app: './src/app.js',
+    admin: './src/admin.js'
+  },
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+</CodeGroup>
+
+## Next Steps
+
+Now that you have a basic webpack setup:
+
+- Learn about [Asset Management](/guides/asset-management) to handle CSS, images, and fonts
+- Explore [Output Management](/guides/output-management) for multiple bundles
+- Set up [Development](/guides/development) tools for a better workflow

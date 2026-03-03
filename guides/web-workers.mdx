@@ -1,0 +1,519 @@
+---
+title: Web Workers
+description: Run computationally intensive tasks in background threads with webpack and Web Workers
+---
+
+Web Workers enable parallel processing in the browser. Learn how to bundle and use workers with webpack for better performance.
+
+## What are Web Workers?
+
+Web Workers run JavaScript in background threads:
+- Offload heavy computations
+- Keep UI responsive
+- Parallel processing
+- No DOM access
+
+## Basic Worker Setup
+
+Webpack 5 has built-in support for Web Workers:
+
+<Steps>
+  <Step title="Create a worker file">
+    ```javascript src/workers/heavy-task.worker.js
+    self.addEventListener('message', (e) => {
+      const { data } = e;
+      
+      // Perform heavy computation
+      const result = performHeavyTask(data);
+      
+      // Send result back to main thread
+      self.postMessage(result);
+    });
+    
+    function performHeavyTask(input) {
+      let result = 0;
+      for (let i = 0; i < input * 1000000; i++) {
+        result += Math.sqrt(i);
+      }
+      return result;
+    }
+    ```
+  </Step>
+
+  <Step title="Use the worker in main thread">
+    ```javascript src/index.js
+    const worker = new Worker(
+      new URL('./workers/heavy-task.worker.js', import.meta.url)
+    );
+    
+    worker.postMessage(100);
+    
+    worker.addEventListener('message', (e) => {
+      console.log('Result from worker:', e.data);
+    });
+    
+    worker.addEventListener('error', (e) => {
+      console.error('Worker error:', e);
+    });
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      entry: './src/index.js',
+      output: {
+        filename: '[name].js',
+        chunkFilename: '[name].js',
+        path: path.resolve(__dirname, 'dist'),
+        publicPath: '/dist/'
+      }
+    };
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  Use `new URL('./worker.js', import.meta.url)` syntax for webpack to recognize and bundle workers.
+</Note>
+
+## Worker Loader (Legacy)
+
+For webpack 4 or custom configurations:
+
+<Steps>
+  <Step title="Install worker-loader">
+    ```bash
+    npm install --save-dev worker-loader
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    ```javascript webpack.config.js
+    module.exports = {
+      module: {
+        rules: [
+          {
+            test: /\.worker\.js$/,
+            use: { loader: 'worker-loader' }
+          }
+        ]
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Use the worker">
+    ```javascript src/index.js
+    import Worker from './workers/compute.worker.js';
+    
+    const worker = new Worker();
+    
+    worker.postMessage({ task: 'compute', value: 42 });
+    
+    worker.addEventListener('message', (e) => {
+      console.log('Result:', e.data);
+    });
+    ```
+  </Step>
+</Steps>
+
+## TypeScript Workers
+
+Use workers with TypeScript:
+
+```typescript src/workers/calculator.worker.ts
+interface WorkerInput {
+  operation: 'add' | 'multiply';
+  values: number[];
+}
+
+interface WorkerOutput {
+  result: number;
+}
+
+self.addEventListener('message', (e: MessageEvent<WorkerInput>) => {
+  const { operation, values } = e.data;
+  
+  let result: number;
+  
+  switch (operation) {
+    case 'add':
+      result = values.reduce((a, b) => a + b, 0);
+      break;
+    case 'multiply':
+      result = values.reduce((a, b) => a * b, 1);
+      break;
+  }
+  
+  const output: WorkerOutput = { result };
+  self.postMessage(output);
+});
+
+export {};
+```
+
+```typescript src/index.ts
+interface WorkerInput {
+  operation: 'add' | 'multiply';
+  values: number[];
+}
+
+interface WorkerOutput {
+  result: number;
+}
+
+const worker = new Worker(
+  new URL('./workers/calculator.worker.ts', import.meta.url)
+);
+
+worker.postMessage({
+  operation: 'add',
+  values: [1, 2, 3, 4, 5]
+} as WorkerInput);
+
+worker.addEventListener('message', (e: MessageEvent<WorkerOutput>) => {
+  console.log('Sum:', e.data.result);
+});
+```
+
+<Tip>
+  Define shared interfaces for type-safe communication between main thread and worker.
+</Tip>
+
+## Module Workers
+
+Use ES6 modules in workers:
+
+```javascript src/workers/module.worker.js
+import { heavyComputation } from '../utils/math';
+import { processData } from '../utils/data';
+
+self.addEventListener('message', async (e) => {
+  const { type, data } = e.data;
+  
+  switch (type) {
+    case 'compute':
+      const result = heavyComputation(data);
+      self.postMessage({ type: 'result', result });
+      break;
+      
+    case 'process':
+      const processed = await processData(data);
+      self.postMessage({ type: 'processed', data: processed });
+      break;
+  }
+});
+```
+
+```javascript src/index.js
+const worker = new Worker(
+  new URL('./workers/module.worker.js', import.meta.url),
+  { type: 'module' }
+);
+
+worker.postMessage({ type: 'compute', data: 1000 });
+```
+
+<Note>
+  Pass `{ type: 'module' }` as the second argument to enable module support in workers.
+</Note>
+
+## Shared Workers
+
+Share a worker across multiple browser contexts:
+
+```javascript src/workers/shared.worker.js
+const connections = [];
+
+self.addEventListener('connect', (e) => {
+  const port = e.ports[0];
+  connections.push(port);
+  
+  port.addEventListener('message', (e) => {
+    // Broadcast to all connections
+    connections.forEach(conn => {
+      if (conn !== port) {
+        conn.postMessage(e.data);
+      }
+    });
+  });
+  
+  port.start();
+});
+```
+
+```javascript src/index.js
+const worker = new SharedWorker(
+  new URL('./workers/shared.worker.js', import.meta.url)
+);
+
+worker.port.start();
+
+worker.port.postMessage('Hello from tab 1');
+
+worker.port.addEventListener('message', (e) => {
+  console.log('Message from other tab:', e.data);
+});
+```
+
+## Worker Pools
+
+Manage multiple workers for parallel processing:
+
+```javascript src/utils/worker-pool.js
+export class WorkerPool {
+  constructor(workerUrl, size = 4) {
+    this.workers = [];
+    this.queue = [];
+    this.activeWorkers = new Set();
+    
+    for (let i = 0; i < size; i++) {
+      const worker = new Worker(workerUrl);
+      this.workers.push(worker);
+    }
+  }
+  
+  async execute(data) {
+    return new Promise((resolve, reject) => {
+      const worker = this.getAvailableWorker();
+      
+      if (worker) {
+        this.runTask(worker, data, resolve, reject);
+      } else {
+        this.queue.push({ data, resolve, reject });
+      }
+    });
+  }
+  
+  getAvailableWorker() {
+    return this.workers.find(w => !this.activeWorkers.has(w));
+  }
+  
+  runTask(worker, data, resolve, reject) {
+    this.activeWorkers.add(worker);
+    
+    const onMessage = (e) => {
+      cleanup();
+      resolve(e.data);
+      this.processQueue();
+    };
+    
+    const onError = (e) => {
+      cleanup();
+      reject(e);
+      this.processQueue();
+    };
+    
+    const cleanup = () => {
+      worker.removeEventListener('message', onMessage);
+      worker.removeEventListener('error', onError);
+      this.activeWorkers.delete(worker);
+    };
+    
+    worker.addEventListener('message', onMessage);
+    worker.addEventListener('error', onError);
+    worker.postMessage(data);
+  }
+  
+  processQueue() {
+    if (this.queue.length === 0) return;
+    
+    const worker = this.getAvailableWorker();
+    if (!worker) return;
+    
+    const { data, resolve, reject } = this.queue.shift();
+    this.runTask(worker, data, resolve, reject);
+  }
+  
+  terminate() {
+    this.workers.forEach(w => w.terminate());
+  }
+}
+```
+
+```javascript src/index.js
+import { WorkerPool } from './utils/worker-pool';
+
+const pool = new WorkerPool(
+  new URL('./workers/compute.worker.js', import.meta.url),
+  4 // 4 workers
+);
+
+// Process tasks in parallel
+const tasks = Array.from({ length: 20 }, (_, i) => i);
+
+Promise.all(
+  tasks.map(task => pool.execute(task))
+).then(results => {
+  console.log('All tasks completed:', results);
+  pool.terminate();
+});
+```
+
+## Real-World Example: Image Processing
+
+```javascript src/workers/image-processor.worker.js
+self.addEventListener('message', (e) => {
+  const { imageData, filter } = e.data;
+  
+  const processed = applyFilter(imageData, filter);
+  
+  self.postMessage({ imageData: processed }, [processed.data.buffer]);
+});
+
+function applyFilter(imageData, filter) {
+  const data = imageData.data;
+  
+  switch (filter) {
+    case 'grayscale':
+      for (let i = 0; i < data.length; i += 4) {
+        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        data[i] = data[i + 1] = data[i + 2] = avg;
+      }
+      break;
+      
+    case 'invert':
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = 255 - data[i];
+        data[i + 1] = 255 - data[i + 1];
+        data[i + 2] = 255 - data[i + 2];
+      }
+      break;
+  }
+  
+  return imageData;
+}
+```
+
+```javascript src/index.js
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const img = new Image();
+
+img.onload = () => {
+  canvas.width = img.width;
+  canvas.height = img.height;
+  ctx.drawImage(img, 0, 0);
+  
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  
+  const worker = new Worker(
+    new URL('./workers/image-processor.worker.js', import.meta.url)
+  );
+  
+  worker.postMessage(
+    { imageData, filter: 'grayscale' },
+    [imageData.data.buffer]
+  );
+  
+  worker.addEventListener('message', (e) => {
+    ctx.putImageData(e.data.imageData, 0, 0);
+    worker.terminate();
+  });
+};
+
+img.src = 'photo.jpg';
+```
+
+<Note>
+  Use transferable objects (like ArrayBuffers) to avoid copying large data between threads.
+</Note>
+
+## Webpack Configuration
+
+Optimized worker configuration:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  
+  output: {
+    filename: '[name].[contenthash].js',
+    chunkFilename: '[name].[contenthash].js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/',
+    clean: true
+  },
+  
+  optimization: {
+    concatenateModules: true,
+    usedExports: true,
+    providedExports: true,
+    chunkIds: 'deterministic'
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /\.worker\.(js|ts)$/,
+        use: {
+          loader: 'ts-loader',
+          options: {
+            transpileOnly: true
+          }
+        }
+      },
+      {
+        test: /\.(js|ts)$/,
+        exclude: /node_modules/,
+        use: 'babel-loader'
+      }
+    ]
+  },
+  
+  resolve: {
+    extensions: ['.ts', '.js']
+  }
+};
+```
+
+<Tip>
+  Workers are automatically code-split by webpack, creating separate bundles for parallel loading.
+</Tip>
+
+## Service Workers
+
+Service workers are similar but for offline functionality:
+
+```javascript src/service-worker.js
+const CACHE_NAME = 'app-v1';
+
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll([
+        '/',
+        '/index.html',
+        '/bundle.js',
+        '/styles.css'
+      ]);
+    })
+  );
+});
+
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((response) => {
+      return response || fetch(e.request);
+    })
+  );
+});
+```
+
+```javascript src/index.js
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js')
+    .then(reg => console.log('SW registered:', reg))
+    .catch(err => console.error('SW registration failed:', err));
+}
+```
+
+<Note>
+  Service Workers require HTTPS (except on localhost) and have different lifecycle than Web Workers.
+</Note>

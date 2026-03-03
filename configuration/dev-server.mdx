@@ -1,0 +1,551 @@
+---
+title: Dev Server
+description: Configure webpack-dev-server for development with hot module replacement and live reloading
+---
+
+The `devServer` configuration controls the webpack-dev-server, which provides live reloading and a development server with many features for improving the development experience.
+
+<Warning>
+  This configuration is only used when running `webpack-dev-server` or `webpack serve`. It has no effect on production builds.
+</Warning>
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  devServer: {
+    port: 3000,
+    hot: true,
+    open: true
+  }
+};
+```
+
+## Server Options
+
+<ParamField path="devServer.port" type="number | string | 'auto'">
+  Specify a port number to listen for requests on.
+  
+  **Default:** `'auto'`
+  
+  ```javascript
+  devServer: {
+    port: 8080
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.host" type="string | 'local-ip' | 'local-ipv4' | 'local-ipv6'">
+  Specify a host to use.
+  
+  **Default:** `'localhost'`
+  
+  ```javascript
+  devServer: {
+    host: '0.0.0.0' // Allow external access
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.server" type="string | object">
+  Configure the server type and options. Options: `'http'`, `'https'`, `'spdy'`.
+  
+  ```javascript
+  // HTTPS
+  devServer: {
+    server: 'https'
+  }
+  
+  // With custom certificates
+  devServer: {
+    server: {
+      type: 'https',
+      options: {
+        key: fs.readFileSync('/path/to/server.key'),
+        cert: fs.readFileSync('/path/to/server.crt')
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.open" type="boolean | string | object | array">
+  Open the browser after server has been started.
+  
+  **Default:** `false`
+  
+  ```javascript
+  // Open default browser
+  devServer: {
+    open: true
+  }
+  
+  // Open specific page
+  devServer: {
+    open: ['/my-page']
+  }
+  
+  // Open with specific browser
+  devServer: {
+    open: {
+      app: {
+        name: 'google-chrome'
+      }
+    }
+  }
+  ```
+</ParamField>
+
+## Hot Module Replacement
+
+<ParamField path="devServer.hot" type="boolean | 'only'">
+  Enable webpack's Hot Module Replacement feature.
+  
+  **Default:** `true`
+  
+  ```javascript
+  devServer: {
+    hot: true
+  }
+  
+  // Only hot reload, no page refresh on compile errors
+  devServer: {
+    hot: 'only'
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.liveReload" type="boolean">
+  Enable live reloading on file changes.
+  
+  **Default:** `true` (unless `hot` is `'only'`)
+  
+  ```javascript
+  devServer: {
+    liveReload: true
+  }
+  ```
+</ParamField>
+
+## Static Files
+
+<ParamField path="devServer.static" type="boolean | string | object | array">
+  Configure static file serving.
+  
+  ```javascript
+  // Serve from directory
+  devServer: {
+    static: './public'
+  }
+  
+  // Multiple directories
+  devServer: {
+    static: ['./public', './assets']
+  }
+  
+  // With options
+  devServer: {
+    static: {
+      directory: path.join(__dirname, 'public'),
+      publicPath: '/serve-public',
+      watch: true
+    }
+  }
+  
+  // Disable
+  devServer: {
+    static: false
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.watchFiles" type="string | object | array">
+  Watch files for changes and trigger full page reload.
+  
+  ```javascript
+  devServer: {
+    watchFiles: ['src/**/*.php', 'public/**/*']
+  }
+  
+  // With options
+  devServer: {
+    watchFiles: {
+      paths: ['src/**/*.php'],
+      options: {
+        usePolling: true
+      }
+    }
+  }
+  ```
+</ParamField>
+
+## Proxying
+
+<ParamField path="devServer.proxy" type="object | array">
+  Proxy API requests to another server.
+  
+  ```javascript
+  devServer: {
+    proxy: {
+      '/api': 'http://localhost:3000'
+    }
+  }
+  
+  // With options
+  devServer: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        pathRewrite: { '^/api': '' },
+        secure: false,
+        changeOrigin: true
+      }
+    }
+  }
+  
+  // Multiple proxies
+  devServer: {
+    proxy: [
+      {
+        context: ['/api', '/auth'],
+        target: 'http://localhost:3000'
+      }
+    ]
+  }
+  ```
+</ParamField>
+
+## Headers and CORS
+
+<ParamField path="devServer.headers" type="object | function">
+  Add custom headers to all responses.
+  
+  ```javascript
+  devServer: {
+    headers: {
+      'X-Custom-Header': 'value'
+    }
+  }
+  
+  // Function
+  devServer: {
+    headers: () => {
+      return {
+        'X-Bar': ['key1=value1', 'key2=value2']
+      };
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.allowedHosts" type="string | array">
+  Specify which hosts are allowed to access the dev server.
+  
+  **Default:** `'auto'`
+  
+  ```javascript
+  devServer: {
+    allowedHosts: [
+      'host.com',
+      'subdomain.host.com',
+      '.host.com' // Wildcard
+    ]
+  }
+  
+  // Allow all
+  devServer: {
+    allowedHosts: 'all'
+  }
+  ```
+</ParamField>
+
+## Compression
+
+<ParamField path="devServer.compress" type="boolean">
+  Enable gzip compression for everything served.
+  
+  **Default:** `true`
+  
+  ```javascript
+  devServer: {
+    compress: true
+  }
+  ```
+</ParamField>
+
+## History API Fallback
+
+<ParamField path="devServer.historyApiFallback" type="boolean | object">
+  Enable HTML5 History API fallback. Useful for single-page applications.
+  
+  **Default:** `false`
+  
+  ```javascript
+  // Simple usage
+  devServer: {
+    historyApiFallback: true
+  }
+  
+  // With rewrites
+  devServer: {
+    historyApiFallback: {
+      rewrites: [
+        { from: /^\/admin/, to: '/admin.html' },
+        { from: /./, to: '/index.html' }
+      ]
+    }
+  }
+  ```
+</ParamField>
+
+## Client Configuration
+
+<ParamField path="devServer.client" type="object">
+  Configure client-side behavior.
+  
+  ```javascript
+  devServer: {
+    client: {
+      logging: 'info',
+      overlay: true,
+      progress: true,
+      reconnect: true,
+      webSocketURL: 'ws://0.0.0.0:8080/ws'
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.client.logging" type="'log' | 'info' | 'warn' | 'error' | 'none' | 'verbose'">
+  Log level in the browser console.
+  
+  **Default:** `'info'`
+</ParamField>
+
+<ParamField path="devServer.client.overlay" type="boolean | object">
+  Show a full-screen overlay in the browser when there are compiler errors or warnings.
+  
+  ```javascript
+  devServer: {
+    client: {
+      overlay: true
+    }
+  }
+  
+  // Show only errors
+  devServer: {
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.client.progress" type="boolean">
+  Show compilation progress in the browser.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="devServer.client.reconnect" type="boolean | number">
+  Reconnect WebSocket when connection is lost.
+  
+  **Default:** `true`
+  
+  ```javascript
+  // Retry 5 times
+  devServer: {
+    client: {
+      reconnect: 5
+    }
+  }
+  ```
+</ParamField>
+
+## Development Middleware
+
+<ParamField path="devServer.devMiddleware" type="object">
+  Configure webpack-dev-middleware options.
+  
+  ```javascript
+  devServer: {
+    devMiddleware: {
+      index: true,
+      publicPath: '/assets/',
+      writeToDisk: false
+    }
+  }
+  ```
+</ParamField>
+
+## Advanced Options
+
+<ParamField path="devServer.setupMiddlewares" type="function">
+  Add custom middlewares before or after all other middlewares.
+  
+  ```javascript
+  devServer: {
+    setupMiddlewares: (middlewares, devServer) => {
+      devServer.app.get('/custom-endpoint', (req, res) => {
+        res.json({ message: 'Hello from custom endpoint!' });
+      });
+      
+      return middlewares;
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.onBeforeSetupMiddleware" type="function">
+  Deprecated. Use `setupMiddlewares` instead.
+</ParamField>
+
+<ParamField path="devServer.onAfterSetupMiddleware" type="function">
+  Deprecated. Use `setupMiddlewares` instead.
+</ParamField>
+
+<ParamField path="devServer.onListening" type="function">
+  Execute custom logic when the server starts listening.
+  
+  ```javascript
+  devServer: {
+    onListening: (devServer) => {
+      const port = devServer.server.address().port;
+      console.log('Server listening on port:', port);
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.webSocketServer" type="string | object | class">
+  Configure WebSocket server type. Options: `'ws'`, `'sockjs'`.
+  
+  **Default:** `'ws'`
+</ParamField>
+
+<ParamField path="devServer.bonjour" type="boolean | object">
+  Broadcast the server via ZeroConf networking on start.
+  
+  ```javascript
+  devServer: {
+    bonjour: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="devServer.magicHtml" type="boolean">
+  Tell dev-server to inject client scripts into HTML pages.
+  
+  **Default:** `true`
+</ParamField>
+
+## Common Configurations
+
+### Basic Development Server
+
+```javascript
+module.exports = {
+  devServer: {
+    port: 3000,
+    hot: true,
+    open: true,
+    compress: true,
+    historyApiFallback: true
+  }
+};
+```
+
+### API Proxy Setup
+
+```javascript
+module.exports = {
+  devServer: {
+    port: 3000,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        pathRewrite: { '^/api': '' },
+        changeOrigin: true
+      },
+      '/auth': {
+        target: 'http://localhost:8000',
+        secure: false
+      }
+    }
+  }
+};
+```
+
+### HTTPS Development
+
+```javascript
+const fs = require('fs');
+
+module.exports = {
+  devServer: {
+    server: {
+      type: 'https',
+      options: {
+        key: fs.readFileSync('./ssl/key.pem'),
+        cert: fs.readFileSync('./ssl/cert.pem')
+      }
+    },
+    port: 443
+  }
+};
+```
+
+### Multi-Page Application
+
+```javascript
+module.exports = {
+  devServer: {
+    port: 3000,
+    historyApiFallback: {
+      rewrites: [
+        { from: /^\/admin/, to: '/admin.html' },
+        { from: /^\/user/, to: '/user.html' },
+        { from: /./, to: '/index.html' }
+      ]
+    },
+    static: {
+      directory: path.join(__dirname, 'public'),
+      watch: true
+    }
+  }
+};
+```
+
+### Development with Custom Middleware
+
+```javascript
+module.exports = {
+  devServer: {
+    port: 3000,
+    setupMiddlewares: (middlewares, devServer) => {
+      // Add custom endpoint before webpack middlewares
+      devServer.app.get('/api/version', (req, res) => {
+        res.json({ version: '1.0.0' });
+      });
+      
+      // Add logging middleware
+      devServer.app.use((req, res, next) => {
+        console.log(`${req.method} ${req.url}`);
+        next();
+      });
+      
+      return middlewares;
+    }
+  }
+};
+```
+
+## See Also
+
+- [DevTool Configuration](/configuration/devtool)
+- [Watch Configuration](/configuration/watch)
+- [webpack-dev-server Documentation](https://webpack.js.org/configuration/dev-server/)
+- [Hot Module Replacement Guide](https://webpack.js.org/guides/hot-module-replacement/)

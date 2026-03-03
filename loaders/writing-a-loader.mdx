@@ -1,0 +1,438 @@
+---
+title: Writing a Loader
+description: Step-by-step guide to creating custom webpack loaders
+---
+
+## Getting Started
+
+A webpack loader is a JavaScript module that exports a function. The loader runner calls this function and passes the result from the previous loader or the resource file.
+
+## Simple Loader Example
+
+Here's a basic loader that transforms content:
+
+```javascript
+// my-loader.js
+module.exports = function(source) {
+  // Transform the source
+  const transformed = source.replace(/\[name\]/g, 'webpack');
+  
+  // Return the transformed source
+  return transformed;
+};
+```
+
+Using the loader:
+
+```javascript
+// webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.txt$/,
+        use: [
+          {
+            loader: path.resolve(__dirname, 'loaders/my-loader.js')
+          }
+        ]
+      }
+    ]
+  }
+};
+```
+
+## Loader with Options
+
+Use `this.getOptions()` to access loader options:
+
+```javascript
+const schema = {
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string'
+    },
+    capitalize: {
+      type: 'boolean'
+    }
+  },
+  additionalProperties: false
+};
+
+module.exports = function(source) {
+  // Get and validate options
+  const options = this.getOptions(schema);
+  
+  const name = options.name || 'webpack';
+  let result = source.replace(/\[name\]/g, name);
+  
+  if (options.capitalize) {
+    result = result.toUpperCase();
+  }
+  
+  return result;
+};
+```
+
+Usage:
+
+```javascript
+{
+  loader: path.resolve(__dirname, 'loaders/my-loader.js'),
+  options: {
+    name: 'custom-name',
+    capitalize: true
+  }
+}
+```
+
+## Asynchronous Loader
+
+For async operations, use `this.async()` to get a callback:
+
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+module.exports = function(source) {
+  // Tell webpack this loader is async
+  const callback = this.async();
+  
+  // Get the loader options
+  const options = this.getOptions();
+  const templatePath = path.resolve(options.template);
+  
+  // Add the template as a dependency
+  this.addDependency(templatePath);
+  
+  // Read the template asynchronously
+  fs.readFile(templatePath, 'utf8', (err, template) => {
+    if (err) {
+      // Pass errors to the callback
+      return callback(err);
+    }
+    
+    // Combine the template with source
+    const result = template.replace('{{content}}', source);
+    
+    // Call the callback with (error, result, sourceMap, meta)
+    callback(null, result);
+  });
+};
+```
+
+## Returning Multiple Values
+
+Loaders can return additional data:
+
+```javascript
+module.exports = function(source, inputSourceMap) {
+  const callback = this.async();
+  
+  // Transform the source
+  const result = transform(source);
+  
+  // Return: (error, content, sourceMap, meta)
+  callback(
+    null,
+    result.code,
+    result.map,
+    {
+      // Additional metadata
+      webpackAST: result.ast
+    }
+  );
+};
+```
+
+## Raw Loader (Binary Data)
+
+For binary data like images, use a raw loader:
+
+```javascript
+module.exports = function(content) {
+  // content is a Buffer
+  const dimensions = getImageDimensions(content);
+  
+  // Emit the file
+  const url = this.emitFile(
+    'image-' + Date.now() + '.png',
+    content
+  );
+  
+  // Return JavaScript module
+  return `
+    module.exports = {
+      src: ${JSON.stringify(url)},
+      width: ${dimensions.width},
+      height: ${dimensions.height}
+    };
+  `;
+};
+
+// Tell webpack this is a raw loader
+module.exports.raw = true;
+```
+
+## Pitch Loader
+
+The pitch method is executed before the loader chain:
+
+```javascript
+module.exports = function(source) {
+  // Normal loader execution
+  return source;
+};
+
+module.exports.pitch = function(remainingRequest, precedingRequest, data) {
+  // Pitch is executed before the loader
+  // remainingRequest: loaders and resource that will be called after this
+  // precedingRequest: loaders that were called before this
+  // data: data object shared between pitch and normal execution
+  
+  if (someCondition()) {
+    // Returning a value skips remaining loaders
+    return `
+      module.exports = require(${JSON.stringify('-!' + remainingRequest)});
+    `;
+  }
+  
+  // Returning nothing continues to next pitch/loader
+};
+```
+
+## Real-World Example: Markdown Loader
+
+Here's a practical example that converts Markdown to HTML:
+
+```javascript
+const marked = require('marked');
+const loaderUtils = require('loader-utils');
+
+const schema = {
+  type: 'object',
+  properties: {
+    gfm: { type: 'boolean' },
+    breaks: { type: 'boolean' },
+    pedantic: { type: 'boolean' }
+  }
+};
+
+module.exports = function(source) {
+  const options = this.getOptions(schema);
+  
+  // Configure marked
+  marked.setOptions({
+    gfm: options.gfm !== false,
+    breaks: options.breaks || false,
+    pedantic: options.pedantic || false
+  });
+  
+  // Add source map support
+  const callback = this.callback;
+  
+  try {
+    const html = marked.parse(source);
+    
+    // Return as ES module
+    const code = `export default ${JSON.stringify(html)}`;
+    
+    callback(null, code);
+  } catch (err) {
+    callback(err);
+  }
+};
+```
+
+## Working with Dependencies
+
+Loaders should declare all file dependencies:
+
+```javascript
+const path = require('path');
+const fs = require('fs');
+
+module.exports = function(source) {
+  const callback = this.async();
+  const options = this.getOptions();
+  
+  // Parse source for dependencies
+  const imports = extractImports(source);
+  
+  // Add each dependency
+  imports.forEach(importPath => {
+    const resolved = path.resolve(this.context, importPath);
+    this.addDependency(resolved);
+  });
+  
+  // Add directory dependencies for dynamic imports
+  if (options.watchDir) {
+    this.addContextDependency(options.watchDir);
+  }
+  
+  // Process and return
+  processSource(source, callback);
+};
+```
+
+## Error Handling
+
+```javascript
+module.exports = function(source) {
+  const options = this.getOptions();
+  
+  try {
+    // Validation
+    if (!options.required) {
+      this.emitWarning(
+        new Error('Missing required option: options.required')
+      );
+    }
+    
+    // Transform
+    const result = transform(source, options);
+    
+    // Non-fatal errors
+    if (result.warnings.length > 0) {
+      result.warnings.forEach(warning => {
+        this.emitWarning(new Error(warning));
+      });
+    }
+    
+    return result.code;
+    
+  } catch (err) {
+    // Fatal errors
+    this.emitError(err);
+    return source; // Return original on error
+  }
+};
+```
+
+## Caching
+
+Loaders are cacheable by default. To disable caching:
+
+```javascript
+module.exports = function(source) {
+  // Disable caching if the result is non-deterministic
+  if (this.isDevelopment()) {
+    this.cacheable(false);
+  }
+  
+  const timestamp = Date.now(); // Non-deterministic
+  return `export const compiled = ${timestamp};`;
+};
+```
+
+## Source Maps
+
+Support source maps for better debugging:
+
+```javascript
+const { SourceMapConsumer, SourceMapGenerator } = require('source-map');
+
+module.exports = function(source, inputSourceMap) {
+  const callback = this.async();
+  
+  // Only generate source maps if enabled
+  if (!this.sourceMap) {
+    return callback(null, transformedSource);
+  }
+  
+  // Transform with source map
+  const result = transformWithSourceMap(source, inputSourceMap);
+  
+  callback(null, result.code, result.map);
+};
+```
+
+## Emitting Files
+
+Emit additional assets:
+
+```javascript
+const path = require('path');
+
+module.exports = function(source) {
+  const options = this.getOptions();
+  
+  // Generate a filename
+  const filename = this.utils.interpolateName(
+    this,
+    options.name || '[contenthash].[ext]',
+    { content: source }
+  );
+  
+  // Emit the file
+  this.emitFile(filename, source);
+  
+  // Return a module that exports the filename
+  return `export default ${JSON.stringify(filename)}`;
+};
+```
+
+## Testing Your Loader
+
+```javascript
+const webpack = require('webpack');
+const memoryfs = require('memory-fs');
+const path = require('path');
+
+function runLoader(source, options = {}) {
+  const compiler = webpack({
+    mode: 'development',
+    entry: path.resolve(__dirname, 'fixtures/entry.js'),
+    output: {
+      path: path.resolve(__dirname, 'output'),
+      filename: 'bundle.js'
+    },
+    module: {
+      rules: [
+        {
+          test: /\.txt$/,
+          use: [
+            {
+              loader: path.resolve(__dirname, '../src/loader.js'),
+              options
+            }
+          ]
+        }
+      ]
+    }
+  });
+  
+  compiler.outputFileSystem = new memoryfs();
+  
+  return new Promise((resolve, reject) => {
+    compiler.run((err, stats) => {
+      if (err) return reject(err);
+      if (stats.hasErrors()) return reject(stats.toJson().errors);
+      resolve(stats);
+    });
+  });
+}
+
+// Test
+test('transforms source', async () => {
+  const stats = await runLoader('test [name]', { name: 'webpack' });
+  expect(stats.toJson().errors).toHaveLength(0);
+});
+```
+
+## Best Practices
+
+1. **Keep it simple** - One loader should do one thing
+2. **Chain loaders** - Use multiple loaders for complex transformations
+3. **Mark dependencies** - Always call `this.addDependency()` for watched files
+4. **Handle errors** - Use `this.emitError()` and `this.emitWarning()`
+5. **Validate options** - Use JSON schema validation
+6. **Support source maps** - Check `this.sourceMap` and generate maps
+7. **Be stateless** - Don't rely on previous executions
+8. **Make it cacheable** - Ensure deterministic output
+
+## Next Steps
+
+- [Loader Interface](/loaders/loader-interface) - Complete API reference
+- [Loader Examples](https://github.com/webpack/webpack/tree/main/examples) - Official examples

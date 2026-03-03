@@ -1,0 +1,203 @@
+---
+title: Entry Points
+description: Learn how webpack uses entry points to start building the dependency graph
+---
+
+An **entry point** indicates which module webpack should use to begin building out its internal dependency graph. Webpack will figure out which other modules and libraries that entry point depends on (directly and indirectly).
+
+## Single Entry Syntax
+
+The simplest way to define an entry point is to provide a string:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: './src/index.js'
+};
+```
+
+## Object Syntax
+
+The object syntax allows you to configure multiple entry points:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    app: './src/app.js',
+    admin: './src/admin.js'
+  }
+};
+```
+
+## Entry Descriptor
+
+Based on the source code in `Entrypoint.js`, webpack creates an `Entrypoint` class for each entry point with the following properties:
+
+<CodeGroup>
+```javascript Entry Options
+{
+  name: 'app',                    // Entry point name
+  runtime: 'runtime-name',        // Runtime chunk name
+  dependOn: ['other-entry'],      // Dependencies on other entries
+  layer: 'client',                // Optional layer name
+  filename: '[name].bundle.js'    // Output filename
+}
+```
+
+```javascript Internal Structure
+class Entrypoint extends ChunkGroup {
+  constructor(entryOptions, initial = true) {
+    this.options = entryOptions;
+    this._runtimeChunk = undefined;      // Runtime chunk reference
+    this._entrypointChunk = undefined;   // Main chunk reference
+    this._initial = initial;             // Is initial load
+    this._dependOn = new SortableSet();  // Entry dependencies
+  }
+}
+```
+</CodeGroup>
+
+## Entry Plugin Implementation
+
+From `EntryPlugin.js`, webpack uses the `EntryPlugin` to handle entry point creation:
+
+```javascript EntryPlugin.js
+class EntryPlugin {
+  constructor(context, entry, options) {
+    this.context = context;  // Base directory
+    this.entry = entry;      // Entry module path
+    this.options = options;  // Entry options
+  }
+
+  apply(compiler) {
+    compiler.hooks.compilation.tap(
+      'EntryPlugin',
+      (compilation, { normalModuleFactory }) => {
+        compilation.dependencyFactories.set(
+          EntryDependency,
+          normalModuleFactory
+        );
+      }
+    );
+
+    compiler.hooks.make.tapAsync('EntryPlugin', (compilation, callback) => {
+      const { entry, options, context } = this;
+      const dep = EntryPlugin.createDependency(entry, options);
+      
+      compilation.addEntry(context, dep, options, callback);
+    });
+  }
+}
+```
+
+## Multiple Entry Points
+
+Multi-page applications benefit from multiple entry points:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    home: './src/pages/home.js',
+    about: './src/pages/about.js',
+    contact: './src/pages/contact.js'
+  },
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+<Note>
+Each entry point creates a separate dependency graph. Webpack starts from each entry and follows all import/require statements to build the complete graph.
+</Note>
+
+## Entry Dependencies
+
+The `dependOn` option allows you to share modules between entry points:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    app: {
+      import: './src/app.js',
+      dependOn: 'shared'
+    },
+    admin: {
+      import: './src/admin.js', 
+      dependOn: 'shared'
+    },
+    shared: ['react', 'react-dom']
+  }
+};
+```
+
+## Runtime Chunks
+
+From the `Entrypoint` class implementation:
+
+```javascript
+class Entrypoint {
+  setRuntimeChunk(chunk) {
+    this._runtimeChunk = chunk;
+  }
+
+  getRuntimeChunk() {
+    if (this._runtimeChunk) return this._runtimeChunk;
+    for (const parent of this.parentsIterable) {
+      if (parent instanceof Entrypoint) {
+        return parent.getRuntimeChunk();
+      }
+    }
+    return null;
+  }
+}
+```
+
+The runtime chunk contains webpack's bootstrap code that loads and executes modules.
+
+## Entry Point Phases
+
+The compilation process for entry points:
+
+1. **Resolution**: Entry path is resolved to an absolute path
+2. **Dependency Creation**: `EntryDependency` is created
+3. **Module Factory**: `NormalModuleFactory` creates the module
+4. **Build**: Module source is loaded and parsed
+5. **Dependency Graph**: All dependencies are recursively processed
+
+<Warning>
+Do not use `dependOn` and `runtime` in the same entry configuration - webpack will throw an error.
+</Warning>
+
+## Dynamic Entries
+
+Webpack supports dynamic entry points using functions:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: () => './src/index.js'
+};
+
+// Or returning a promise
+module.exports = {
+  entry: () => new Promise((resolve) => {
+    setTimeout(() => {
+      resolve('./src/index.js');
+    }, 1000);
+  })
+};
+```
+
+## Entry Point Naming
+
+The entry point name is used for:
+- Output filename generation via `[name]` placeholder
+- Chunk identification in the module graph
+- Runtime chunk naming
+- HMR update manifest generation
+
+## Related Configuration
+
+- [Output](/concepts/output) - Configure how entry bundles are written
+- [Loaders](/concepts/loaders) - Transform entry module sources
+- [Dependency Graph](/concepts/dependency-graph) - How webpack builds from entries

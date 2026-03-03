@@ -1,0 +1,1037 @@
+---
+title: Plugin API Reference
+description: Complete reference for webpack plugin hooks and APIs
+---
+
+## Compiler Hooks
+
+The Compiler module is the main engine that creates a compilation instance with all the options passed through webpack configuration. Compiler hooks are synchronous or asynchronous hooks that are called at different stages of the webpack lifecycle.
+
+Access compiler hooks:
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.hookName.tap('MyPlugin', (params) => {
+      // Hook implementation
+    });
+  }
+}
+```
+
+### Lifecycle Hooks
+
+#### `initialize`
+
+**Type:** `SyncHook<[]>`
+
+Called when the compiler is initialized.
+
+```javascript
+compiler.hooks.initialize.tap('MyPlugin', () => {
+  console.log('Compiler initialized');
+});
+```
+
+#### `environment`
+
+**Type:** `SyncHook<[]>`
+
+Called when the environment is being prepared, right after the plugins in the configuration file have been initialized.
+
+```javascript
+compiler.hooks.environment.tap('MyPlugin', () => {
+  console.log('Environment setup');
+});
+```
+
+#### `afterEnvironment`
+
+**Type:** `SyncHook<[]>`
+
+Called right after the environment hook.
+
+```javascript
+compiler.hooks.afterEnvironment.tap('MyPlugin', () => {
+  console.log('Environment setup complete');
+});
+```
+
+#### `entryOption`
+
+**Type:** `SyncBailHook<[string, EntryNormalized]>`
+
+Called after the entry configuration has been processed.
+
+**Parameters:**
+- `context`: Base directory (absolute path)
+- `entry`: Entry configuration
+
+**Returns:** Return `true` to prevent default entry processing
+
+```javascript
+compiler.hooks.entryOption.tap('MyPlugin', (context, entry) => {
+  console.log('Entry options:', entry);
+});
+```
+
+#### `afterPlugins`
+
+**Type:** `SyncHook<[Compiler]>`
+
+Called after all plugins from the configuration have been applied.
+
+```javascript
+compiler.hooks.afterPlugins.tap('MyPlugin', (compiler) => {
+  console.log('All plugins applied');
+});
+```
+
+#### `afterResolvers`
+
+**Type:** `SyncHook<[Compiler]>`
+
+Called after resolvers are set up.
+
+```javascript
+compiler.hooks.afterResolvers.tap('MyPlugin', (compiler) => {
+  // Modify resolvers
+  console.log('Resolvers are ready');
+});
+```
+
+### Compilation Hooks
+
+#### `beforeRun`
+
+**Type:** `AsyncSeriesHook<[Compiler]>`
+
+Called before the compiler starts running. Great for performing one-time setup.
+
+```javascript
+compiler.hooks.beforeRun.tapAsync('MyPlugin', (compiler, callback) => {
+  console.log('Starting compilation...');
+  callback();
+});
+```
+
+#### `run`
+
+**Type:** `AsyncSeriesHook<[Compiler]>`
+
+Called when the compiler starts running.
+
+```javascript
+compiler.hooks.run.tapAsync('MyPlugin', (compiler, callback) => {
+  console.log('Compiler is running');
+  callback();
+});
+```
+
+#### `watchRun`
+
+**Type:** `AsyncSeriesHook<[Compiler]>`
+
+Called when watch mode starts.
+
+```javascript
+compiler.hooks.watchRun.tapAsync('MyPlugin', (compiler, callback) => {
+  // Check which files changed
+  const changedFiles = compiler.modifiedFiles;
+  console.log('Files changed:', changedFiles);
+  callback();
+});
+```
+
+#### `beforeCompile`
+
+**Type:** `AsyncSeriesHook<[CompilationParams]>`
+
+Called before a new compilation is created, after compilation parameters are initialized.
+
+**Parameters:**
+- `params`: Object containing `normalModuleFactory` and `contextModuleFactory`
+
+```javascript
+compiler.hooks.beforeCompile.tapAsync('MyPlugin', (params, callback) => {
+  console.log('Before compilation');
+  callback();
+});
+```
+
+#### `compile`
+
+**Type:** `SyncHook<[CompilationParams]>`
+
+Called immediately before compilation.
+
+```javascript
+compiler.hooks.compile.tap('MyPlugin', (params) => {
+  console.log('Compilation starting');
+});
+```
+
+#### `thisCompilation`
+
+**Type:** `SyncHook<[Compilation, CompilationParams]>`
+
+Called before the `compilation` hook. This hook is not copied to child compilers.
+
+```javascript
+compiler.hooks.thisCompilation.tap('MyPlugin', (compilation, params) => {
+  console.log('This compilation hook');
+});
+```
+
+#### `compilation`
+
+**Type:** `SyncHook<[Compilation, CompilationParams]>`
+
+Called when a compilation is created. Great for tapping into compilation hooks.
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation, params) => {
+  // Access compilation hooks
+  compilation.hooks.buildModule.tap('MyPlugin', (module) => {
+    console.log('Building module:', module);
+  });
+});
+```
+
+#### `make`
+
+**Type:** `AsyncParallelHook<[Compilation]>`
+
+Called when compilation starts building the entry module. Runs in parallel.
+
+```javascript
+compiler.hooks.make.tapAsync('MyPlugin', (compilation, callback) => {
+  // Add additional entries
+  compilation.addEntry(
+    './src/extra.js',
+    'extra-entry',
+    {},
+    (err) => {
+      if (err) return callback(err);
+      callback();
+    }
+  );
+});
+```
+
+#### `finishMake`
+
+**Type:** `AsyncSeriesHook<[Compilation]>`
+
+Called after finishing building all modules.
+
+```javascript
+compiler.hooks.finishMake.tapAsync('MyPlugin', (compilation, callback) => {
+  console.log('Finished building modules');
+  callback();
+});
+```
+
+#### `afterCompile`
+
+**Type:** `AsyncSeriesHook<[Compilation]>`
+
+Called after compilation is finished.
+
+```javascript
+compiler.hooks.afterCompile.tapAsync('MyPlugin', (compilation, callback) => {
+  console.log('Compilation finished');
+  callback();
+});
+```
+
+### Emit Hooks
+
+#### `shouldEmit`
+
+**Type:** `SyncBailHook<[Compilation]>`
+
+Called before assets are emitted. Return `false` to prevent emit.
+
+```javascript
+compiler.hooks.shouldEmit.tap('MyPlugin', (compilation) => {
+  if (compilation.errors.length > 0) {
+    return false; // Don't emit if there are errors
+  }
+});
+```
+
+#### `emit`
+
+**Type:** `AsyncSeriesHook<[Compilation]>`
+
+Called right before emitting assets to the output directory.
+
+```javascript
+compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+  // Modify assets before emit
+  for (const filename in compilation.assets) {
+    console.log('Emitting:', filename);
+  }
+  callback();
+});
+```
+
+#### `assetEmitted`
+
+**Type:** `AsyncSeriesHook<[string, AssetEmittedInfo]>`
+
+Called after an asset has been written to the output directory.
+
+```javascript
+compiler.hooks.assetEmitted.tapAsync(
+  'MyPlugin',
+  (file, info, callback) => {
+    console.log('Asset emitted:', file);
+    console.log('Output path:', info.outputPath);
+    console.log('Target path:', info.targetPath);
+    callback();
+  }
+);
+```
+
+#### `afterEmit`
+
+**Type:** `AsyncSeriesHook<[Compilation]>`
+
+Called after assets have been emitted.
+
+```javascript
+compiler.hooks.afterEmit.tapAsync('MyPlugin', (compilation, callback) => {
+  console.log('Assets emitted');
+  callback();
+});
+```
+
+### Completion Hooks
+
+#### `done`
+
+**Type:** `AsyncSeriesHook<[Stats]>`
+
+Called when compilation is complete.
+
+```javascript
+compiler.hooks.done.tapPromise('MyPlugin', async (stats) => {
+  const info = stats.toJson();
+  console.log('Build completed in', info.time, 'ms');
+  console.log('Errors:', info.errors.length);
+  console.log('Warnings:', info.warnings.length);
+});
+```
+
+#### `afterDone`
+
+**Type:** `SyncHook<[Stats]>`
+
+Called after the `done` hook completes.
+
+```javascript
+compiler.hooks.afterDone.tap('MyPlugin', (stats) => {
+  console.log('After done');
+});
+```
+
+#### `failed`
+
+**Type:** `SyncHook<[Error]>`
+
+Called when compilation fails.
+
+```javascript
+compiler.hooks.failed.tap('MyPlugin', (error) => {
+  console.error('Compilation failed:', error);
+});
+```
+
+### Watch Hooks
+
+#### `watchClose`
+
+**Type:** `SyncHook<[]>`
+
+Called when watch mode stops.
+
+```javascript
+compiler.hooks.watchClose.tap('MyPlugin', () => {
+  console.log('Watch stopped');
+});
+```
+
+#### `invalid`
+
+**Type:** `SyncHook<[string | null, number]>`
+
+Called when a watched file has changed.
+
+**Parameters:**
+- `filename`: File that was changed (or null)
+- `changeTime`: Timestamp of change
+
+```javascript
+compiler.hooks.invalid.tap('MyPlugin', (filename, changeTime) => {
+  console.log('File changed:', filename);
+});
+```
+
+### Other Hooks
+
+#### `shutdown`
+
+**Type:** `AsyncSeriesHook<[]>`
+
+Called when the compiler is shutting down.
+
+```javascript
+compiler.hooks.shutdown.tapAsync('MyPlugin', (callback) => {
+  // Clean up resources
+  console.log('Shutting down');
+  callback();
+});
+```
+
+#### `infrastructureLog`
+
+**Type:** `SyncBailHook<[string, string, any[]]>`
+
+Allows plugins to log to webpack's infrastructure logger.
+
+**Parameters:**
+- `origin`: Plugin name
+- `type`: Log type (log, info, warn, error, etc.)
+- `args`: Log arguments
+
+```javascript
+compiler.hooks.infrastructureLog.tap('MyPlugin', (origin, type, args) => {
+  if (type === 'error') {
+    // Handle errors
+  }
+});
+```
+
+## Compilation Hooks
+
+The Compilation object represents a single build of versioned assets. Access compilation hooks through the `compilation` compiler hook:
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+  compilation.hooks.hookName.tap('MyPlugin', (params) => {
+    // Implementation
+  });
+});
+```
+
+### Module Hooks
+
+#### `buildModule`
+
+**Type:** `SyncHook<[Module]>`
+
+Called before a module is built.
+
+```javascript
+compilation.hooks.buildModule.tap('MyPlugin', (module) => {
+  console.log('Building module:', module.resource);
+});
+```
+
+#### `succeedModule`
+
+**Type:** `SyncHook<[Module]>`
+
+Called when a module has been successfully built.
+
+```javascript
+compilation.hooks.succeedModule.tap('MyPlugin', (module) => {
+  console.log('Module built successfully:', module.resource);
+});
+```
+
+#### `finishModules`
+
+**Type:** `AsyncSeriesHook<[Iterable<Module>]>`
+
+Called when all modules have been built.
+
+```javascript
+compilation.hooks.finishModules.tapAsync(
+  'MyPlugin',
+  (modules, callback) => {
+    console.log('Total modules:', modules.size);
+    callback();
+  }
+);
+```
+
+### Optimization Hooks
+
+#### `optimizeDependencies`
+
+**Type:** `SyncBailHook<[Iterable<Module>]>`
+
+Called to optimize module dependencies. Return `true` to bail.
+
+```javascript
+compilation.hooks.optimizeDependencies.tap('MyPlugin', (modules) => {
+  // Optimize dependencies
+});
+```
+
+#### `optimizeModules`
+
+**Type:** `SyncBailHook<[Iterable<Module>]>`
+
+Called to optimize modules.
+
+```javascript
+compilation.hooks.optimizeModules.tap('MyPlugin', (modules) => {
+  // Optimize modules
+});
+```
+
+#### `afterOptimizeModules`
+
+**Type:** `SyncHook<[Iterable<Module>]>`
+
+Called after module optimization.
+
+```javascript
+compilation.hooks.afterOptimizeModules.tap('MyPlugin', (modules) => {
+  console.log('Modules optimized');
+});
+```
+
+#### `optimizeChunks`
+
+**Type:** `SyncBailHook<[Iterable<Chunk>, ChunkGroup[]]>`
+
+Called to optimize chunks. Return `true` to bail.
+
+```javascript
+compilation.hooks.optimizeChunks.tap('MyPlugin', (chunks, chunkGroups) => {
+  console.log('Optimizing', chunks.size, 'chunks');
+});
+```
+
+#### `afterOptimizeChunks`
+
+**Type:** `SyncHook<[Iterable<Chunk>, ChunkGroup[]]>`
+
+Called after chunk optimization.
+
+```javascript
+compilation.hooks.afterOptimizeChunks.tap('MyPlugin', (chunks) => {
+  console.log('Chunks optimized');
+});
+```
+
+#### `optimizeTree`
+
+**Type:** `AsyncSeriesHook<[Iterable<Chunk>, Iterable<Module>]>`
+
+Called to optimize the module and chunk tree.
+
+```javascript
+compilation.hooks.optimizeTree.tapAsync(
+  'MyPlugin',
+  (chunks, modules, callback) => {
+    // Optimize tree
+    callback();
+  }
+);
+```
+
+#### `optimizeChunkModules`
+
+**Type:** `AsyncSeriesBailHook<[Iterable<Chunk>, Iterable<Module>]>`
+
+Called to optimize chunk modules.
+
+```javascript
+compilation.hooks.optimizeChunkModules.tapAsync(
+  'MyPlugin',
+  (chunks, modules, callback) => {
+    // Optimize chunk modules
+    callback();
+  }
+);
+```
+
+### Asset Hooks
+
+#### `processAssets`
+
+**Type:** `AsyncSeriesHook<[CompilationAssets]>`
+
+The primary hook for asset processing. Supports stages for ordering.
+
+**Stages:**
+```javascript
+Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL       // -2000
+Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS      // -1000
+Compilation.PROCESS_ASSETS_STAGE_DERIVED          //  -200
+Compilation.PROCESS_ASSETS_STAGE_ADDITIONS        //  -100
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE         //   100
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COUNT   //   200
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY // 300
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE    //   400
+Compilation.PROCESS_ASSETS_STAGE_DEV_TOOLING      //   500
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE  //   700
+Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE        //  1000
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_HASH    //  2500
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER // 3000
+Compilation.PROCESS_ASSETS_STAGE_ANALYSE          //  4000
+Compilation.PROCESS_ASSETS_STAGE_REPORT           //  5000
+```
+
+```javascript
+compilation.hooks.processAssets.tap(
+  {
+    name: 'MyPlugin',
+    stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+  },
+  (assets) => {
+    // Process assets
+    for (const name in assets) {
+      const asset = assets[name];
+      // Modify asset
+    }
+  }
+);
+```
+
+#### `afterProcessAssets`
+
+**Type:** `SyncHook<[CompilationAssets]>`
+
+Called after assets have been processed.
+
+```javascript
+compilation.hooks.afterProcessAssets.tap('MyPlugin', (assets) => {
+  console.log('Assets processed');
+});
+```
+
+#### `optimizeAssets` (deprecated)
+
+**Type:** `AsyncSeriesHook<[CompilationAssets]>`
+
+**Deprecated:** Use `processAssets` with `PROCESS_ASSETS_STAGE_OPTIMIZE` instead.
+
+```javascript
+compilation.hooks.optimizeAssets.tapAsync(
+  'MyPlugin',
+  (assets, callback) => {
+    // Optimize assets
+    callback();
+  }
+);
+```
+
+#### `afterOptimizeAssets`
+
+**Type:** `SyncHook<[CompilationAssets]>`
+
+Called after asset optimization.
+
+```javascript
+compilation.hooks.afterOptimizeAssets.tap('MyPlugin', (assets) => {
+  console.log('Assets optimized');
+});
+```
+
+### Other Compilation Hooks
+
+#### `seal`
+
+**Type:** `SyncHook<[]>`
+
+Called when compilation is being sealed.
+
+```javascript
+compilation.hooks.seal.tap('MyPlugin', () => {
+  console.log('Compilation sealed');
+});
+```
+
+#### `afterSeal`
+
+**Type:** `AsyncSeriesHook<[]>`
+
+Called after compilation is sealed.
+
+```javascript
+compilation.hooks.afterSeal.tapAsync('MyPlugin', (callback) => {
+  console.log('After seal');
+  callback();
+});
+```
+
+#### `needAdditionalPass`
+
+**Type:** `SyncBailHook<[]>`
+
+Return `true` to run another compilation pass.
+
+```javascript
+compilation.hooks.needAdditionalPass.tap('MyPlugin', () => {
+  if (needsAnotherPass) {
+    return true;
+  }
+});
+```
+
+## NormalModuleFactory Hooks
+
+The NormalModuleFactory creates NormalModule instances. Access through the `normalModuleFactory` compiler hook:
+
+```javascript
+compiler.hooks.normalModuleFactory.tap('MyPlugin', (factory) => {
+  factory.hooks.hookName.tap('MyPlugin', (params) => {
+    // Implementation
+  });
+});
+```
+
+### `beforeResolve`
+
+**Type:** `AsyncSeriesBailHook<[ResolveData]>`
+
+Called before resolving a module request.
+
+```javascript
+factory.hooks.beforeResolve.tapAsync(
+  'MyPlugin',
+  (resolveData, callback) => {
+    console.log('Resolving:', resolveData.request);
+    callback();
+  }
+);
+```
+
+### `resolve`
+
+**Type:** `AsyncSeriesBailHook<[ResolveData]>`
+
+Called when resolving a module.
+
+```javascript
+factory.hooks.resolve.tapAsync('MyPlugin', (resolveData, callback) => {
+  // Modify resolve behavior
+  callback();
+});
+```
+
+### `afterResolve`
+
+**Type:** `AsyncSeriesBailHook<[ResolveData]>`
+
+Called after a module has been resolved.
+
+```javascript
+factory.hooks.afterResolve.tapAsync(
+  'MyPlugin',
+  (resolveData, callback) => {
+    console.log('Resolved:', resolveData.resource);
+    callback();
+  }
+);
+```
+
+### `createModule`
+
+**Type:** `SyncBailHook<[Object, ResolveData]>`
+
+Called before creating a module. Return a module to use instead.
+
+```javascript
+factory.hooks.createModule.tap('MyPlugin', (createData, resolveData) => {
+  // Return custom module
+  return new CustomModule(createData);
+});
+```
+
+### `module`
+
+**Type:** `SyncWaterfallHook<[Module, Object, ResolveData]>`
+
+Called after a module is created.
+
+```javascript
+factory.hooks.module.tap('MyPlugin', (module, createData, resolveData) => {
+  // Modify or replace module
+  return module;
+});
+```
+
+## Hook Types
+
+### Tap Methods
+
+Different hook types support different tap methods:
+
+#### Synchronous Hooks
+
+```javascript
+// SyncHook, SyncBailHook, SyncWaterfallHook
+compiler.hooks.syncHook.tap('MyPlugin', (arg) => {
+  // Synchronous operation
+});
+```
+
+#### Asynchronous Hooks (Callback)
+
+```javascript
+// AsyncSeriesHook, AsyncSeriesBailHook, AsyncParallelHook
+compiler.hooks.asyncHook.tapAsync('MyPlugin', (arg, callback) => {
+  doAsync(() => {
+    callback();
+  });
+});
+```
+
+#### Asynchronous Hooks (Promise)
+
+```javascript
+// AsyncSeriesHook, AsyncSeriesBailHook, AsyncParallelHook
+compiler.hooks.asyncHook.tapPromise('MyPlugin', async (arg) => {
+  await doAsync();
+});
+```
+
+## Compiler API
+
+### Properties
+
+#### `compiler.options`
+
+**Type:** `WebpackOptions`
+
+The webpack configuration options.
+
+```javascript
+const outputPath = compiler.options.output.path;
+const mode = compiler.options.mode;
+```
+
+#### `compiler.context`
+
+**Type:** `string`
+
+The base directory (absolute path) for resolving entry points and loaders.
+
+```javascript
+console.log('Context:', compiler.context);
+```
+
+#### `compiler.inputFileSystem`
+
+**Type:** `InputFileSystem`
+
+The file system for reading input files.
+
+```javascript
+compiler.inputFileSystem.readFile(path, 'utf8', (err, content) => {
+  // Handle file content
+});
+```
+
+#### `compiler.outputFileSystem`
+
+**Type:** `OutputFileSystem`
+
+The file system for writing output files.
+
+```javascript
+compiler.outputFileSystem.writeFile(path, content, (err) => {
+  // Handle write completion
+});
+```
+
+### Methods
+
+#### `compiler.getInfrastructureLogger(name)`
+
+Get a logger for infrastructure logging.
+
+**Parameters:**
+- `name`: Logger name
+
+**Returns:** `Logger`
+
+```javascript
+const logger = compiler.getInfrastructureLogger('MyPlugin');
+logger.info('Plugin initialized');
+logger.warn('Deprecated option');
+logger.error('Failed to process');
+```
+
+#### `compiler.run(callback)`
+
+Run the compiler.
+
+**Parameters:**
+- `callback`: `(err: Error | null, stats: Stats) => void`
+
+```javascript
+compiler.run((err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  console.log(stats.toString());
+});
+```
+
+#### `compiler.watch(watchOptions, handler)`
+
+Run the compiler in watch mode.
+
+**Parameters:**
+- `watchOptions`: Watch configuration
+- `handler`: Callback for each compilation
+
+**Returns:** `Watching`
+
+```javascript
+const watching = compiler.watch({
+  aggregateTimeout: 300,
+  poll: undefined
+}, (err, stats) => {
+  console.log('Recompiled');
+});
+
+// Stop watching
+watching.close(() => {
+  console.log('Watching stopped');
+});
+```
+
+## Compilation API
+
+### Properties
+
+#### `compilation.assets`
+
+**Type:** `{ [filename: string]: Source }`
+
+All assets of the compilation.
+
+```javascript
+for (const filename in compilation.assets) {
+  const asset = compilation.assets[filename];
+  const content = asset.source();
+  const size = asset.size();
+}
+```
+
+#### `compilation.errors`
+
+**Type:** `WebpackError[]`
+
+Array of compilation errors.
+
+```javascript
+compilation.errors.push(new Error('Custom error'));
+```
+
+#### `compilation.warnings`
+
+**Type:** `WebpackError[]`
+
+Array of compilation warnings.
+
+```javascript
+compilation.warnings.push(new Error('Custom warning'));
+```
+
+#### `compilation.modules`
+
+**Type:** `Set<Module>`
+
+All modules in the compilation.
+
+```javascript
+for (const module of compilation.modules) {
+  console.log(module.resource);
+}
+```
+
+#### `compilation.chunks`
+
+**Type:** `Set<Chunk>`
+
+All chunks in the compilation.
+
+```javascript
+for (const chunk of compilation.chunks) {
+  console.log('Chunk:', chunk.name || chunk.id);
+  console.log('Files:', Array.from(chunk.files));
+}
+```
+
+### Methods
+
+#### `compilation.getLogger(name)`
+
+Get a logger.
+
+```javascript
+const logger = compilation.getLogger('MyPlugin');
+logger.log('Processing...');
+```
+
+#### `compilation.emitAsset(filename, source, assetInfo?)`
+
+Emit an asset.
+
+**Parameters:**
+- `filename`: Asset filename
+- `source`: Source object
+- `assetInfo`: Optional asset metadata
+
+```javascript
+const { RawSource } = require('webpack-sources');
+
+compilation.emitAsset(
+  'output.txt',
+  new RawSource('content'),
+  { minimized: false }
+);
+```
+
+#### `compilation.updateAsset(filename, updater, assetInfo?)`
+
+Update an existing asset.
+
+**Parameters:**
+- `filename`: Asset filename
+- `updater`: `(source: Source) => Source`
+- `assetInfo`: Optional asset metadata
+
+```javascript
+compilation.updateAsset('main.js', (old) => {
+  return new ConcatSource(old, '\n// Updated');
+});
+```
+
+#### `compilation.deleteAsset(filename)`
+
+Delete an asset.
+
+```javascript
+compilation.deleteAsset('unwanted.js');
+```
+
+## Reference
+
+For the complete and up-to-date API reference, see:
+
+- [Compiler.js source](https://github.com/webpack/webpack/blob/main/lib/Compiler.js) (lines 158-238)
+- [Compilation.js source](https://github.com/webpack/webpack/blob/main/lib/Compilation.js)
+- [Tapable documentation](https://github.com/webpack/tapable)

@@ -1,0 +1,440 @@
+---
+title: Modules
+description: Understanding webpack's module system and how it handles different module types
+---
+
+In webpack, modules are the discrete chunks of functionality that can be imported, exported, and bundled. Webpack extends beyond JavaScript to handle various file types as modules.
+
+## What is a Module?
+
+From `Module.js`, webpack's base Module class:
+
+```javascript Module.js
+class Module extends DependenciesBlock {
+  constructor(type, context = null, layer = null) {
+    super();
+    
+    this.type = type;           // Module type (javascript/auto, css, etc.)
+    this.context = context;     // Module's directory context
+    this.layer = layer;         // Optional layer (for module federation)
+    this.needId = true;         // Whether module needs an ID
+    
+    // Build information
+    this.buildMeta = undefined;  // Metadata from build
+    this.buildInfo = undefined;  // Build-specific info
+    
+    // Dependencies
+    this.presentationalDependencies = undefined;
+    this.codeGenerationDependencies = undefined;
+  }
+}
+```
+
+## Module Types
+
+From `ModuleTypeConstants.js`, webpack supports multiple module types:
+
+```javascript
+const JAVASCRIPT_MODULE_TYPE_AUTO = 'javascript/auto';
+const JAVASCRIPT_MODULE_TYPE_DYNAMIC = 'javascript/dynamic';
+const JAVASCRIPT_MODULE_TYPE_ESM = 'javascript/esm';
+const JSON_MODULE_TYPE = 'json';
+const ASSET_MODULE_TYPE = 'asset';
+const ASSET_MODULE_TYPE_RESOURCE = 'asset/resource';
+const ASSET_MODULE_TYPE_INLINE = 'asset/inline';
+const ASSET_MODULE_TYPE_SOURCE = 'asset/source';
+const WEBASSEMBLY_MODULE_TYPE_ASYNC = 'webassembly/async';
+const WEBASSEMBLY_MODULE_TYPE_SYNC = 'webassembly/sync';
+const CSS_MODULE_TYPE = 'css';
+const CSS_MODULE_TYPE_AUTO = 'css/auto';
+const CSS_MODULE_TYPE_MODULE = 'css/module';
+const CSS_MODULE_TYPE_GLOBAL = 'css/global';
+```
+
+## Supported Module Syntax
+
+Webpack understands various module formats:
+
+<Tabs>
+  <Tab title="ES2015">
+    ```javascript
+    // Import
+    import { named } from './module';
+    import defaultExport from './module';
+    import * as all from './module';
+    
+    // Export
+    export const value = 42;
+    export default function() {}
+    export { named };
+    ```
+  </Tab>
+  
+  <Tab title="CommonJS">
+    ```javascript
+    // Import
+    const module = require('./module');
+    const { named } = require('./module');
+    
+    // Export
+    module.exports = value;
+    exports.named = value;
+    ```
+  </Tab>
+  
+  <Tab title="AMD">
+    ```javascript
+    // Import
+    define(['./module'], function(module) {
+      // use module
+    });
+    
+    require(['./module'], function(module) {
+      // use module
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Assets">
+    ```javascript
+    // Import images, fonts, etc.
+    import logo from './logo.png';
+    import styles from './styles.css';
+    import data from './data.json';
+    ```
+  </Tab>
+</Tabs>
+
+## NormalModule
+
+From `NormalModule.js`, most modules are NormalModule instances:
+
+```javascript NormalModule.js
+class NormalModule extends Module {
+  constructor({
+    layer,
+    type,
+    request,          // Full request with loaders
+    userRequest,      // User's original request
+    rawRequest,       // Raw request string
+    loaders,          // Array of loaders to apply
+    resource,         // Resource path
+    parser,           // Parser instance
+    generator,        // Generator instance
+    resolveOptions    // Resolution options
+  }) {
+    super(type, context, layer);
+    
+    this.request = request;
+    this.userRequest = userRequest;
+    this.rawRequest = rawRequest;
+    this.binary = /^(?:asset|webassembly)\b/.test(type);
+    this.parser = parser;
+    this.generator = generator;
+    this.resource = resource;
+    this.loaders = loaders;
+  }
+  
+  // Build the module
+  build(options, compilation, resolver, fs, callback) {
+    // 1. Run loaders
+    // 2. Parse source
+    // 3. Extract dependencies
+    // 4. Build metadata
+  }
+}
+```
+
+## Module Resolution
+
+Webpack resolves modules using enhanced-resolve:
+
+```javascript webpack.config.js
+module.exports = {
+  resolve: {
+    // Module directories
+    modules: ['node_modules'],
+    
+    // File extensions to try
+    extensions: ['.js', '.json', '.jsx'],
+    
+    // Aliases
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+      'components': path.resolve(__dirname, 'src/components')
+    },
+    
+    // Main fields in package.json
+    mainFields: ['browser', 'module', 'main'],
+    
+    // Main files
+    mainFiles: ['index']
+  }
+};
+```
+
+## Module Identifiers
+
+From `Module.js`, each module has a unique identifier:
+
+```javascript
+identifier() {
+  // For NormalModule:
+  if (this.layer === null) {
+    if (this.type === JAVASCRIPT_MODULE_TYPE_AUTO) {
+      return this.request;
+    }
+    return `${this.type}|${this.request}`;
+  }
+  return `${this.type}|${this.request}|${this.layer}`;
+}
+
+// Example identifiers:
+// 'javascript/auto|/path/to/module.js'
+// 'css|/path/to/styles.css'
+// 'asset/resource|/path/to/image.png'
+```
+
+## Module Graph
+
+From `ModuleGraph.js`, webpack builds a dependency graph:
+
+```javascript ModuleGraph.js
+class ModuleGraph {
+  constructor() {
+    this._dependencyMap = new WeakMap();  // Dependency -> Connection
+    this._moduleMap = new Map();          // Module -> ModuleGraphModule
+  }
+  
+  setResolvedModule(originModule, dependency, module) {
+    const connection = new ModuleGraphConnection(
+      originModule,
+      dependency,
+      module,
+      undefined,
+      dependency.weak,
+      dependency.getCondition(this)
+    );
+    
+    // Add to incoming connections
+    const targetMgm = this._getModuleGraphModule(module);
+    targetMgm.incomingConnections.add(connection);
+    
+    // Add to outgoing connections
+    if (originModule) {
+      const originMgm = this._getModuleGraphModule(originModule);
+      originMgm.outgoingConnections.add(connection);
+    }
+  }
+}
+```
+
+## Module Build Process
+
+The module build lifecycle:
+
+1. **Create**: Module factory creates module instance
+2. **Build**: Load source and run loaders
+3. **Parse**: Parse source to extract dependencies
+4. **Dependencies**: Resolve all dependencies
+5. **Code Generation**: Generate output code
+
+<CodeGroup>
+```javascript Factory Phase
+class NormalModuleFactory {
+  create(data, callback) {
+    const { dependencies, context } = data;
+    
+    this.hooks.beforeResolve.callAsync(resolveData, (err, result) => {
+      if (result === false) return callback(); // Ignored
+      
+      this.hooks.factorize.callAsync(resolveData, (err, module) => {
+        callback(null, { module });
+      });
+    });
+  }
+}
+```
+
+```javascript Build Phase
+class NormalModule {
+  build(options, compilation, resolver, fs, callback) {
+    // Run loaders
+    this._doBuild(options, compilation, resolver, fs, hooks, (err) => {
+      if (err) return callback(err);
+      
+      // Parse source
+      this.parser.parse(this._source.source(), {
+        current: this,
+        module: this,
+        compilation,
+        options
+      });
+      
+      callback();
+    });
+  }
+}
+```
+</CodeGroup>
+
+## Build Info
+
+From `Module.js`, modules store build information:
+
+```javascript
+this.buildInfo = {
+  cacheable: true,              // Can be cached
+  parsed: true,                 // Was parsed
+  fileDependencies: new Set(),  // File dependencies
+  contextDependencies: new Set(), // Context dependencies
+  missingDependencies: new Set(), // Missing dependencies
+  hash: undefined,              // Build hash
+  assets: {},                   // Emitted assets
+  strict: false                 // Strict mode
+};
+
+this.buildMeta = {
+  exportsType: 'namespace',     // Export type
+  sideEffectFree: false,        // Has side effects
+  async: false,                 // Is async module
+  providedExports: true         // Exports are known
+};
+```
+
+## Module Types in Config
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        type: 'javascript/auto'  // Auto-detect module type
+      },
+      {
+        test: /\.json$/,
+        type: 'json'             // JSON module
+      },
+      {
+        test: /\.png$/,
+        type: 'asset/resource'   // Asset module
+      },
+      {
+        test: /\.txt$/,
+        type: 'asset/source'     // Inline as string
+      },
+      {
+        test: /\.wasm$/,
+        type: 'webassembly/async' // WebAssembly
+      }
+    ]
+  }
+};
+```
+
+## Context Modules
+
+From `ContextModule.js`, dynamic imports create context modules:
+
+```javascript
+// Dynamic import with expression
+import(`./locale/${language}.json`);
+
+// Creates a context module that includes all matching files
+// Context: './locale'
+// Request: `./${language}.json`
+```
+
+## External Modules
+
+From `ExternalModule.js`, externals are not bundled:
+
+```javascript webpack.config.js
+module.exports = {
+  externals: {
+    jquery: 'jQuery',      // Global variable
+    lodash: '_',
+    react: 'react'         // UMD
+  }
+};
+```
+
+```javascript
+// In code
+import $ from 'jquery';
+
+// Becomes
+const $ = jQuery; // Global variable
+```
+
+## Module Federation
+
+Share modules between separate builds:
+
+```javascript webpack.config.js
+const { ModuleFederationPlugin } = require('webpack').container;
+
+module.exports = {
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'app1',
+      filename: 'remoteEntry.js',
+      exposes: {
+        './Component': './src/Component'
+      },
+      shared: ['react', 'react-dom']
+    })
+  ]
+};
+```
+
+## Side Effects
+
+From `Module.js`, modules can declare side effects:
+
+```json package.json
+{
+  "name": "my-library",
+  "sideEffects": false  // No side effects, safe to tree shake
+}
+
+// Or specify files with side effects:
+{
+  "sideEffects": [
+    "*.css",
+    "./src/polyfills.js"
+  ]
+}
+```
+
+<Note>
+Marking a package as side-effect-free enables aggressive tree shaking in production mode.
+</Note>
+
+## Module Concatenation
+
+Production mode concatenates modules when possible:
+
+```javascript
+// Before concatenation
+// a.js
+export const a = 1;
+
+// b.js  
+import { a } from './a';
+export const b = a + 1;
+
+// After concatenation
+(function() {
+  const a = 1;
+  const b = a + 1;
+  // All in one scope
+})();
+```
+
+## Related Concepts
+
+- [Loaders](/concepts/loaders) - Transform module sources
+- [Dependency Graph](/concepts/dependency-graph) - How modules are connected
+- [Module Resolution](/concepts/module-resolution) - How modules are found

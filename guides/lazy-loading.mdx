@@ -1,0 +1,478 @@
+---
+title: Lazy Loading
+description: Improve performance by loading code on demand with dynamic imports
+---
+
+Lazy loading defers loading parts of your application until they're needed. Learn how to implement lazy loading for routes, components, and features.
+
+## What is Lazy Loading?
+
+Lazy loading splits your application into smaller chunks loaded on demand:
+- Faster initial page load
+- Reduced bandwidth usage
+- Better resource utilization
+- Improved user experience
+
+## Dynamic Imports
+
+Use `import()` to load modules dynamically:
+
+```javascript src/index.js
+function loadModule() {
+  import('./module')
+    .then(module => {
+      module.default();
+    })
+    .catch(err => console.error('Failed to load module:', err));
+}
+
+button.addEventListener('click', loadModule);
+```
+
+### Async/Await Syntax
+
+```javascript src/index.js
+async function loadModule() {
+  try {
+    const module = await import('./module');
+    module.default();
+  } catch (err) {
+    console.error('Failed to load module:', err);
+  }
+}
+
+button.addEventListener('click', loadModule);
+```
+
+<Note>
+  Dynamic imports return a Promise that resolves to the module object.
+</Note>
+
+## Named Chunks
+
+Give meaningful names to lazy chunks:
+
+```javascript
+import(/* webpackChunkName: "lodash" */ 'lodash')
+  .then(({ default: _ }) => {
+    console.log(_.join(['Hello', 'webpack'], ' '));
+  });
+```
+
+This creates a `lodash.chunk.js` file.
+
+## Lazy Loading Components
+
+### Vanilla JavaScript
+
+```javascript src/index.js
+const loadButton = document.getElementById('loadButton');
+const container = document.getElementById('container');
+
+loadButton.addEventListener('click', async () => {
+  const { default: Component } = await import(
+    /* webpackChunkName: "heavy-component" */
+    './HeavyComponent'
+  );
+  
+  container.appendChild(Component());
+});
+```
+
+### React
+
+```javascript src/App.js
+import React, { Suspense, lazy } from 'react';
+
+const Dashboard = lazy(() => import(
+  /* webpackChunkName: "dashboard" */
+  './Dashboard'
+));
+
+const Profile = lazy(() => import(
+  /* webpackChunkName: "profile" */
+  './Profile'
+));
+
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Router>
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/profile" component={Profile} />
+      </Router>
+    </Suspense>
+  );
+}
+```
+
+### Vue
+
+```javascript src/router.js
+const routes = [
+  {
+    path: '/dashboard',
+    component: () => import(
+      /* webpackChunkName: "dashboard" */
+      './views/Dashboard.vue'
+    )
+  },
+  {
+    path: '/profile',
+    component: () => import(
+      /* webpackChunkName: "profile" */
+      './views/Profile.vue'
+    )
+  }
+];
+```
+
+<Tip>
+  Use `webpackChunkName` to group related components into the same chunk.
+</Tip>
+
+## Prefetching and Preloading
+
+### Prefetch
+
+Load resources during idle time:
+
+```javascript
+import(/* webpackPrefetch: true */ './future-module')
+  .then(module => {
+    module.init();
+  });
+```
+
+Generates:
+```html
+<link rel="prefetch" href="future-module.chunk.js">
+```
+
+### Preload
+
+Load resources immediately in parallel:
+
+```javascript
+import(/* webpackPreload: true */ './critical-module')
+  .then(module => {
+    module.init();
+  });
+```
+
+Generates:
+```html
+<link rel="preload" href="critical-module.chunk.js" as="script">
+```
+
+<CodeGroup>
+```javascript Prefetch Example
+// Load when browser is idle
+const loadSettings = async () => {
+  const { default: Settings } = await import(
+    /* webpackPrefetch: true */
+    /* webpackChunkName: "settings" */
+    './Settings'
+  );
+  
+  return Settings;
+};
+```
+
+```javascript Preload Example
+// Load immediately with main bundle
+const loadCritical = async () => {
+  const { default: Critical } = await import(
+    /* webpackPreload: true */
+    /* webpackChunkName: "critical" */
+    './Critical'
+  );
+  
+  return Critical;
+};
+```
+</CodeGroup>
+
+<Note>
+  **Prefetch**: Low priority, loads during idle time, for future navigation.
+  **Preload**: High priority, loads immediately, for current page.
+</Note>
+
+## Lazy Loading CSS
+
+Load CSS on demand:
+
+```javascript src/index.js
+const loadTheme = async (themeName) => {
+  await import(
+    /* webpackChunkName: "theme-[request]" */
+    `./themes/${themeName}.css`
+  );
+};
+
+// Load dark theme
+loadTheme('dark');
+```
+
+## Route-Based Splitting
+
+Complete example with routing:
+
+<Steps>
+  <Step title="Create route components">
+    ```javascript src/pages/Home.js
+    export default function Home() {
+      const div = document.createElement('div');
+      div.textContent = 'Home Page';
+      return div;
+    }
+    ```
+    
+    ```javascript src/pages/About.js
+    export default function About() {
+      const div = document.createElement('div');
+      div.textContent = 'About Page';
+      return div;
+    }
+    ```
+  </Step>
+
+  <Step title="Implement lazy router">
+    ```javascript src/router.js
+    const routes = {
+      '/': () => import(
+        /* webpackChunkName: "home" */
+        './pages/Home'
+      ),
+      '/about': () => import(
+        /* webpackChunkName: "about" */
+        './pages/About'
+      ),
+      '/contact': () => import(
+        /* webpackChunkName: "contact" */
+        './pages/Contact'
+      )
+    };
+    
+    export async function navigate(path) {
+      const loader = routes[path];
+      if (!loader) {
+        console.error('Route not found');
+        return;
+      }
+      
+      const { default: Component } = await loader();
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+      app.appendChild(Component());
+    }
+    ```
+  </Step>
+
+  <Step title="Set up navigation">
+    ```javascript src/index.js
+    import { navigate } from './router';
+    
+    document.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const path = link.getAttribute('href');
+        navigate(path);
+        window.history.pushState({}, '', path);
+      });
+    });
+    
+    // Handle browser back/forward
+    window.addEventListener('popstate', () => {
+      navigate(window.location.pathname);
+    });
+    
+    // Load initial route
+    navigate(window.location.pathname || '/');
+    ```
+  </Step>
+</Steps>
+
+## Loading States
+
+Provide feedback while loading:
+
+```javascript src/index.js
+async function loadComponent(componentPath) {
+  const loader = document.getElementById('loader');
+  const container = document.getElementById('container');
+  
+  try {
+    // Show loading state
+    loader.style.display = 'block';
+    container.style.opacity = '0.5';
+    
+    // Load component
+    const { default: Component } = await import(
+      /* webpackChunkName: "[request]" */
+      `./components/${componentPath}`
+    );
+    
+    // Render component
+    container.innerHTML = '';
+    container.appendChild(Component());
+    
+  } catch (err) {
+    console.error('Failed to load:', err);
+    container.innerHTML = '<p>Error loading component</p>';
+    
+  } finally {
+    // Hide loading state
+    loader.style.display = 'none';
+    container.style.opacity = '1';
+  }
+}
+```
+
+## Dynamic Import Variables
+
+Use variables in import paths:
+
+```javascript
+const language = 'en';
+
+import(
+  /* webpackChunkName: "locale-[request]" */
+  `./locales/${language}.json`
+)
+  .then(locale => {
+    console.log(locale.default);
+  });
+```
+
+<Note>
+  Webpack creates separate chunks for each possible module when using variables in import paths.
+</Note>
+
+## Error Boundaries
+
+Handle loading errors gracefully:
+
+```javascript src/index.js
+async function loadWithRetry(importFn, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await importFn();
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+}
+
+// Usage
+loadWithRetry(
+  () => import(/* webpackChunkName: "module" */ './module')
+)
+  .then(module => module.default())
+  .catch(err => console.error('Failed after retries:', err));
+```
+
+## Webpack Configuration
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  
+  output: {
+    filename: '[name].[contenthash].js',
+    chunkFilename: '[name].[contenthash].chunk.js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/'
+  },
+  
+  optimization: {
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        }
+      }
+    }
+  }
+};
+```
+
+## Real-World Example
+
+Complete lazy loading implementation:
+
+```javascript src/index.js
+class App {
+  constructor() {
+    this.container = document.getElementById('app');
+    this.setupRoutes();
+  }
+  
+  setupRoutes() {
+    const routes = {
+      '/': {
+        component: () => import(
+          /* webpackChunkName: "home" */
+          /* webpackPrefetch: true */
+          './pages/Home'
+        ),
+        title: 'Home'
+      },
+      '/dashboard': {
+        component: () => import(
+          /* webpackChunkName: "dashboard" */
+          './pages/Dashboard'
+        ),
+        title: 'Dashboard'
+      },
+      '/settings': {
+        component: () => import(
+          /* webpackChunkName: "settings" */
+          /* webpackPrefetch: true */
+          './pages/Settings'
+        ),
+        title: 'Settings'
+      }
+    };
+    
+    this.router = routes;
+    this.navigate(window.location.pathname);
+  }
+  
+  async navigate(path) {
+    const route = this.router[path];
+    if (!route) return;
+    
+    // Show loading
+    this.container.innerHTML = '<div class="loader">Loading...</div>';
+    
+    try {
+      // Load component
+      const { default: Component } = await route.component();
+      
+      // Update page
+      document.title = route.title;
+      this.container.innerHTML = '';
+      this.container.appendChild(Component());
+      
+    } catch (err) {
+      console.error('Navigation failed:', err);
+      this.container.innerHTML = '<div class="error">Failed to load page</div>';
+    }
+  }
+}
+
+new App();
+```
+
+<Tip>
+  Combine lazy loading with prefetching for optimal performance: lazy load current route, prefetch likely next routes.
+</Tip>

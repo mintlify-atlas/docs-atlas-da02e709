@@ -1,0 +1,360 @@
+---
+title: ModuleConcatenationPlugin
+description: Webpack's ModuleConcatenationPlugin enables scope hoisting to reduce bundle size and improve runtime performance.
+---
+
+The `ModuleConcatenationPlugin` implements "scope hoisting" by concatenating the scope of modules into a single closure when possible. This optimization reduces bundle size, improves runtime performance, and decreases the number of function scopes in your bundle.
+
+## Overview
+
+This plugin is enabled automatically in production mode via `optimization.concatenateModules`. It analyzes your ES6 module graph and safely concatenates modules together, reducing the overhead of webpack's module system.
+
+## Basic Usage
+
+The plugin is automatically enabled in production mode:
+
+```javascript
+module.exports = {
+  mode: 'production', // ModuleConcatenationPlugin enabled by default
+  optimization: {
+    concatenateModules: true // explicitly enable
+  }
+};
+```
+
+Manually enable in any mode:
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.ModuleConcatenationPlugin()
+  ]
+};
+```
+
+## How It Works
+
+The plugin operates during the `optimizeChunkModules` compilation phase:
+
+1. **Identifies eligible modules** - Only ES6 modules in strict mode with static exports
+2. **Analyzes dependencies** - Checks if modules can be safely concatenated
+3. **Creates concatenated modules** - Combines compatible modules into a single module
+4. **Updates module graph** - Replaces individual modules with concatenated versions
+
+### Module Eligibility
+
+A module can be concatenated if:
+
+- It's an **ES6 module** (uses `import`/`export`)
+- It's in **strict mode**
+- Has **static exports** (not dynamic)
+- Uses only **Harmony imports** (ES6 imports)
+- Not an **entry point**
+- Not **async** (e.g., not using `import()`)
+- Shares the **same chunks** with dependent modules
+- Has **no non-module dependencies**
+
+## Configuration
+
+The plugin has no configuration options. Enable or disable it via:
+
+<ParamField path="optimization.concatenateModules" type="boolean" default="true in production">
+Controls whether the ModuleConcatenationPlugin is active.
+</ParamField>
+
+## Optimization Benefits
+
+### Bundle Size Reduction
+
+Before concatenation:
+```javascript
+// module-a.js
+export const a = 1;
+
+// module-b.js  
+import { a } from './module-a';
+export const b = a + 1;
+```
+
+Webpack output without concatenation:
+```javascript
+// Separate module scopes
+var module_a = (function() {
+  var a = 1;
+  return { a: a };
+})();
+
+var module_b = (function() {
+  var b = module_a.a + 1;
+  return { b: b };
+})();
+```
+
+With concatenation:
+```javascript
+// Single concatenated scope
+var module = (function() {
+  var a = 1;
+  var b = a + 1;
+  return { a: a, b: b };
+})();
+```
+
+### Performance Improvements
+
+- **Fewer function scopes** - Reduces memory overhead
+- **Faster execution** - Eliminates module wrapper function calls
+- **Better minification** - More opportunities for terser/uglify optimizations
+- **Smaller bundles** - Less boilerplate code
+
+## Bailout Reasons
+
+The plugin may skip concatenation for various reasons. Use `--display-optimization-bailout` to see why:
+
+```bash
+webpack --display-optimization-bailout
+```
+
+Common bailout reasons:
+
+### Module is not in strict mode
+Only strict mode modules can be concatenated:
+```javascript
+// ❌ Will not be concatenated
+export const value = 1;
+eval('code'); // non-strict mode feature
+
+// ✅ Will be concatenated  
+'use strict';
+export const value = 1;
+```
+
+### Module is async
+Async modules cannot be concatenated:
+```javascript
+// ❌ Will not be concatenated
+const lazy = import('./lazy');
+
+// ✅ Will be concatenated
+import { value } from './sync';
+```
+
+### Module is an entry point
+Entry modules cannot be inner modules:
+```javascript
+// webpack.config.js
+entry: {
+  main: './src/index.js' // Cannot be concatenated as inner module
+}
+```
+
+### List of module exports is dynamic
+Dynamic exports prevent concatenation:
+```javascript
+// ❌ Will not be concatenated
+export * from './unknown';
+
+// ✅ Will be concatenated
+export { specific, exports } from './known';
+```
+
+### Module is referenced in an unsupported way
+Non-ES6 imports prevent concatenation:
+```javascript
+// ❌ Will not be concatenated (CommonJS)
+const module = require('./module');
+
+// ✅ Will be concatenated (ES6)
+import { value } from './module';
+```
+
+### Module is not in the same chunks
+Modules must be in the same chunks:
+```javascript
+// If module A is in chunk 1 but module B is in chunks 1 and 2,
+// they cannot be concatenated
+```
+
+## Examples
+
+### Basic ES6 Module Concatenation
+
+```javascript math.js
+export const add = (a, b) => a + b;
+export const multiply = (a, b) => a * b;
+```
+
+```javascript calculator.js
+import { add, multiply } from './math';
+
+export const calculate = (a, b) => {
+  return add(a, multiply(b, 2));
+};
+```
+
+```javascript index.js
+import { calculate } from './calculator';
+
+console.log(calculate(5, 3));
+```
+
+With `ModuleConcatenationPlugin`, all three modules may be concatenated into a single scope.
+
+### Checking Concatenation
+
+Verify concatenation in the build output:
+
+```bash
+webpack --display-modules --display-optimization-bailout
+```
+
+Look for:
+```
+[./src/index.js] + 2 modules 245 bytes {main} [built]
+```
+
+The `+ 2 modules` indicates concatenation occurred.
+
+### Maximum Concatenation Configuration
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  optimization: {
+    concatenateModules: true,
+    usedExports: true, // Enables tree shaking
+    providedExports: true, // Provides export information
+    sideEffects: true // Respects package.json sideEffects
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              ['@babel/preset-env', {
+                modules: false // Important: preserve ES6 modules
+              }]
+            ]
+          }
+        }
+      }
+    ]
+  }
+};
+```
+
+## Best Practices
+
+### Use ES6 Modules
+
+Always prefer ES6 `import`/`export` over CommonJS:
+
+```javascript
+// ✅ Good - ES6 modules
+import { func } from './module';
+export { value };
+
+// ❌ Bad - CommonJS
+const { func } = require('./module');
+module.exports = { value };
+```
+
+### Preserve ES6 Modules in Babel
+
+Configure Babel to not transpile modules:
+
+```javascript .babelrc
+{
+  "presets": [
+    ["@babel/preset-env", {
+      "modules": false
+    }]
+  ]
+}
+```
+
+### Use Static Imports
+
+Avoid dynamic imports for modules you want concatenated:
+
+```javascript
+// ✅ Good - static
+import { value } from './config';
+
+// ❌ Bad - dynamic (for concatenation)
+const config = require('./config');
+```
+
+### Mark Side Effects
+
+Use `sideEffects` in package.json for better optimization:
+
+```json package.json
+{
+  "sideEffects": false
+}
+```
+
+Or specify files with side effects:
+```json
+{
+  "sideEffects": ["*.css", "./src/polyfills.js"]
+}
+```
+
+## Debugging
+
+### View Concatenation Stats
+
+Use webpack's stats to see concatenation results:
+
+```javascript webpack.config.js
+module.exports = {
+  stats: {
+    optimizationBailout: true
+  }
+};
+```
+
+### Webpack Bundle Analyzer
+
+Visualize which modules were concatenated:
+
+```bash
+npm install --save-dev webpack-bundle-analyzer
+```
+
+```javascript webpack.config.js
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+
+module.exports = {
+  plugins: [
+    new BundleAnalyzerPlugin()
+  ]
+};
+```
+
+## Compatibility
+
+- Requires webpack 3+
+- Works best with ES6 modules
+- Compatible with tree shaking
+- Cannot be used with `cacheUnaffected` optimization
+
+## Performance Impact
+
+- **Build time**: Minimal increase (module graph analysis)
+- **Bundle size**: 5-15% reduction typical
+- **Runtime performance**: Faster execution, reduced memory
+
+## Related Optimizations
+
+- Enable `optimization.usedExports` for tree shaking
+- Enable `optimization.sideEffects` to respect package.json flags
+- Use `optimization.providedExports` for better analysis
+- Combine with [SplitChunksPlugin](/built-in-plugins/split-chunks-plugin) for optimal code splitting

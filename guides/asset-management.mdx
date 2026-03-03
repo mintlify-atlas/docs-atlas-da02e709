@@ -1,0 +1,311 @@
+---
+title: Asset Management
+description: Learn how to load and bundle CSS, images, fonts, and other assets with webpack
+---
+
+Webpack can bundle more than just JavaScript. Learn how to load CSS, images, fonts, and data files in your projects.
+
+## Loading CSS
+
+<Steps>
+  <Step title="Install loaders">
+    Install the required loaders for CSS:
+    
+    ```bash
+    npm install --save-dev style-loader css-loader
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    Add CSS rules to your webpack configuration:
+    
+    ```javascript webpack.config.js
+    module.exports = {
+      module: {
+        rules: [
+          {
+            test: /\.css$/i,
+            use: ['style-loader', 'css-loader']
+          }
+        ]
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Import CSS in JavaScript">
+    Now you can import CSS files directly:
+    
+    ```javascript src/index.js
+    import './style.css';
+    
+    console.log('CSS loaded!');
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  Loaders are evaluated from right to left. `css-loader` processes the CSS, then `style-loader` injects it into the DOM.
+</Note>
+
+## Loading Images
+
+Webpack 5 includes Asset Modules for handling images without additional loaders.
+
+### Using Asset Modules
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    assetModuleFilename: 'images/[hash][ext]'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(png|jpg|svg)$/,
+        type: 'asset'
+      }
+    ]
+  }
+};
+```
+
+### Importing Images
+
+<CodeGroup>
+```javascript ES6 Import
+import png from './images/file.png';
+import jpg from './images/file.jpg';
+import svg from './images/file.svg';
+
+const img = document.createElement('img');
+img.src = png;
+document.body.appendChild(img);
+```
+
+```javascript Using new URL
+const url = new URL('./images/icon.svg', import.meta.url);
+
+const img = document.createElement('img');
+img.src = url;
+document.body.appendChild(img);
+```
+
+```javascript In CSS
+/* style.css */
+.logo {
+  background-image: url('./logo.png');
+}
+```
+</CodeGroup>
+
+<Tip>
+  The `asset` type automatically chooses between `asset/resource` (emits a file) and `asset/inline` (data URI) based on file size. The default threshold is 8kb.
+</Tip>
+
+## Asset Module Types
+
+Webpack provides four asset module types:
+
+<CodeGroup>
+```javascript asset/resource
+// Emits a separate file and exports the URL
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.(png|jpg)$/,
+        type: 'asset/resource'
+      }
+    ]
+  }
+};
+```
+
+```javascript asset/inline
+// Exports data URI of the asset
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.svg$/,
+        type: 'asset/inline'
+      }
+    ]
+  }
+};
+```
+
+```javascript asset/source
+// Exports source code of the asset
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.txt$/,
+        type: 'asset/source'
+      }
+    ]
+  }
+};
+```
+
+```javascript asset (automatic)
+// Automatically chooses based on size
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.(png|jpg)$/,
+        type: 'asset',
+        parser: {
+          dataUrlCondition: {
+            maxSize: 8 * 1024 // 8kb
+          }
+        }
+      }
+    ]
+  }
+};
+```
+</CodeGroup>
+
+## Loading Fonts
+
+Use asset modules to load custom fonts:
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource'
+      }
+    ]
+  }
+};
+```
+
+Then use them in your CSS:
+
+```css style.css
+@font-face {
+  font-family: 'MyFont';
+  src: url('./fonts/myfont.woff2') format('woff2'),
+       url('./fonts/myfont.woff') format('woff');
+  font-weight: 600;
+  font-style: normal;
+}
+
+body {
+  font-family: 'MyFont', sans-serif;
+}
+```
+
+## Loading Data Files
+
+Webpack supports JSON by default. For other formats, use appropriate loaders:
+
+<CodeGroup>
+```javascript JSON (built-in)
+import data from './data.json';
+
+console.log(data.title);
+```
+
+```javascript CSV
+// Install: npm install --save-dev csv-loader
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.(csv|tsv)$/i,
+        use: ['csv-loader']
+      }
+    ]
+  }
+};
+```
+
+```javascript XML
+// Install: npm install --save-dev xml-loader
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.xml$/i,
+        use: ['xml-loader']
+      }
+    ]
+  }
+};
+```
+</CodeGroup>
+
+## Import Attributes
+
+Use import attributes for text and binary data:
+
+```javascript
+// Import as text
+import text from './file.txt' with { type: 'text' };
+console.log(text);
+
+// Import as bytes (Uint8Array)
+import bytes from './data.bin' with { type: 'bytes' };
+console.log(bytes);
+```
+
+<Note>
+  Import attributes work out of the box without additional configuration.
+</Note>
+
+## Complete Configuration Example
+
+Here's a comprehensive asset management configuration:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist'),
+    assetModuleFilename: 'assets/[hash][ext]'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader']
+      },
+      {
+        test: /\.(png|jpg|jpeg|gif)$/i,
+        type: 'asset',
+        parser: {
+          dataUrlCondition: {
+            maxSize: 8 * 1024
+          }
+        }
+      },
+      {
+        test: /\.svg$/i,
+        type: 'asset/inline'
+      },
+      {
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'fonts/[hash][ext]'
+        }
+      }
+    ]
+  }
+};
+```
+
+<Tip>
+  Use `generator.filename` to customize output paths for specific asset types.
+</Tip>

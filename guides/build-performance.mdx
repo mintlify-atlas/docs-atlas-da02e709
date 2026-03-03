@@ -1,0 +1,588 @@
+---
+title: Build Performance
+description: Optimize webpack build speed with caching, parallel processing, and configuration best practices
+---
+
+Improve webpack build performance with practical optimizations. Learn caching strategies, loader configurations, and development speedups.
+
+## Development Optimizations
+
+### Use Development Mode
+
+Development mode skips production optimizations:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-cheap-module-source-map'
+};
+```
+
+<Note>
+  Development mode provides faster builds with readable output. Never use it for production.
+</Note>
+
+### Filesystem Cache
+
+Enable persistent caching for dramatic speed improvements:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  cache: {
+    type: 'filesystem',
+    cacheDirectory: path.resolve(__dirname, '.cache'),
+    buildDependencies: {
+      config: [__filename]
+    }
+  },
+  infrastructureLogging: {
+    level: 'info'
+  }
+};
+```
+
+<Tip>
+  First build is slow, subsequent builds are 10-100x faster with filesystem cache.
+</Tip>
+
+### Incremental Builds
+
+Use watch mode for development:
+
+```javascript webpack.config.js
+module.exports = {
+  watch: true,
+  watchOptions: {
+    aggregateTimeout: 300,
+    poll: false,
+    ignored: /node_modules/
+  }
+};
+```
+
+Or use webpack-dev-server:
+
+```javascript
+module.exports = {
+  devServer: {
+    hot: true,
+    static: './dist'
+  }
+};
+```
+
+## Loader Optimizations
+
+### Limit Loader Scope
+
+Exclude `node_modules` from transpilation:
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: 'babel-loader'
+      }
+    ]
+  }
+};
+```
+
+### Use Include Instead of Exclude
+
+Be explicit about what to process:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        include: path.resolve(__dirname, 'src'),
+        use: 'babel-loader'
+      }
+    ]
+  }
+};
+```
+
+### Cache Loader Results
+
+Cache expensive loader operations:
+
+```bash
+npm install --save-dev cache-loader
+```
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: [
+          'cache-loader',
+          'babel-loader'
+        ],
+        include: path.resolve(__dirname, 'src')
+      }
+    ]
+  }
+};
+```
+
+<Note>
+  With webpack 5's persistent cache, cache-loader is usually unnecessary.
+</Note>
+
+## TypeScript Performance
+
+### Use transpileOnly
+
+Skip type checking during compilation:
+
+```javascript webpack.config.js
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        loader: 'ts-loader',
+        options: {
+          transpileOnly: true
+        }
+      }
+    ]
+  },
+  plugins: [
+    new ForkTsCheckerWebpackPlugin()
+  ]
+};
+```
+
+<Tip>
+  Type checking in a separate process improves build speed by 50-70%.
+</Tip>
+
+## Resolution Optimizations
+
+### Minimize Extensions
+
+Limit extension resolution:
+
+```javascript webpack.config.js
+module.exports = {
+  resolve: {
+    extensions: ['.js', '.jsx', '.json']
+    // Don't add too many extensions
+  }
+};
+```
+
+### Use Absolute Paths
+
+Specify absolute paths for faster resolution:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  resolve: {
+    modules: [
+      path.resolve(__dirname, 'node_modules')
+    ]
+  }
+};
+```
+
+### Limit Resolve Symlinks
+
+```javascript webpack.config.js
+module.exports = {
+  resolve: {
+    symlinks: false
+  }
+};
+```
+
+## Exclude from Parsing
+
+Skip parsing for libraries without imports:
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    noParse: /jquery|lodash/
+  }
+};
+```
+
+<Note>
+  Use `noParse` only for libraries that don't use `import` or `require`.
+</Note>
+
+## Lazy Compilation
+
+Compile modules only when requested:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'development',
+  cache: {
+    type: 'filesystem',
+    idleTimeout: 5000
+  },
+  experiments: {
+    lazyCompilation: true
+  },
+  devServer: {
+    hot: true
+  }
+};
+```
+
+<Tip>
+  Lazy compilation dramatically reduces initial build time in large applications.
+</Tip>
+
+## Parallel Processing
+
+### Thread Loader
+
+Run loaders in worker pool:
+
+```bash
+npm install --save-dev thread-loader
+```
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: [
+          'thread-loader',
+          'babel-loader'
+        ]
+      }
+    ]
+  }
+};
+```
+
+<Note>
+  Thread loader has overhead. Only use for expensive operations on large codebases.
+</Note>
+
+## DLL Plugin (Legacy)
+
+For webpack 4, pre-bundle vendor code:
+
+```javascript webpack.dll.config.js
+const path = require('path');
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'development',
+  entry: {
+    vendor: ['react', 'react-dom', 'lodash']
+  },
+  output: {
+    filename: '[name].dll.js',
+    path: path.resolve(__dirname, 'dll'),
+    library: '[name]_[hash]'
+  },
+  plugins: [
+    new webpack.DllPlugin({
+      name: '[name]_[hash]',
+      path: path.resolve(__dirname, 'dll/[name]-manifest.json')
+    })
+  ]
+};
+```
+
+<Note>
+  DLL plugin is mostly unnecessary in webpack 5 due to improved caching.
+</Note>
+
+## Production Optimizations
+
+### Minimize JavaScript
+
+```javascript webpack.config.js
+const TerserPlugin = require('terser-webpack-plugin');
+
+module.exports = {
+  mode: 'production',
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        parallel: true,
+        terserOptions: {
+          compress: {
+            drop_console: true
+          }
+        }
+      })
+    ]
+  }
+};
+```
+
+### Minimize CSS
+
+```javascript webpack.config.js
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+
+module.exports = {
+  optimization: {
+    minimizer: [
+      `...`,
+      new CssMinimizerPlugin({
+        parallel: true
+      })
+    ]
+  }
+};
+```
+
+## Source Map Performance
+
+Choose appropriate source maps:
+
+<CodeGroup>
+```javascript Development (Fast)
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-cheap-module-source-map'
+};
+```
+
+```javascript Development (Quality)
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-source-map'
+};
+```
+
+```javascript Production
+module.exports = {
+  mode: 'production',
+  devtool: 'source-map'
+};
+```
+
+```javascript No Source Maps
+module.exports = {
+  mode: 'production',
+  devtool: false
+};
+```
+</CodeGroup>
+
+## Bundle Analysis
+
+Identify optimization opportunities:
+
+```bash
+npm install --save-dev webpack-bundle-analyzer
+```
+
+```javascript webpack.config.js
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+
+module.exports = {
+  plugins: [
+    new BundleAnalyzerPlugin({
+      analyzerMode: 'static',
+      openAnalyzer: false
+    })
+  ]
+};
+```
+
+## Build Measurement
+
+Measure what's slow:
+
+```bash
+npm install --save-dev speed-measure-webpack-plugin
+```
+
+```javascript webpack.config.js
+const SpeedMeasurePlugin = require('speed-measure-webpack-plugin');
+const smp = new SpeedMeasurePlugin();
+
+module.exports = smp.wrap({
+  // Your webpack config
+  entry: './src/index.js',
+  // ...
+});
+```
+
+## Complete Optimized Configuration
+
+<CodeGroup>
+```javascript Development
+const path = require('path');
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-cheap-module-source-map',
+  
+  cache: {
+    type: 'filesystem',
+    cacheDirectory: path.resolve(__dirname, '.cache')
+  },
+  
+  experiments: {
+    lazyCompilation: true
+  },
+  
+  devServer: {
+    hot: true
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        include: path.resolve(__dirname, 'src'),
+        loader: 'ts-loader',
+        options: {
+          transpileOnly: true
+        }
+      },
+      {
+        test: /\.jsx?$/,
+        include: path.resolve(__dirname, 'src'),
+        use: 'babel-loader'
+      }
+    ]
+  },
+  
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    modules: [path.resolve(__dirname, 'node_modules')]
+  },
+  
+  plugins: [
+    new ForkTsCheckerWebpackPlugin({
+      async: true
+    })
+  ]
+};
+```
+
+```javascript Production
+const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+
+module.exports = {
+  mode: 'production',
+  devtool: 'source-map',
+  
+  cache: {
+    type: 'filesystem',
+    cacheDirectory: path.resolve(__dirname, '.cache')
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        include: path.resolve(__dirname, 'src'),
+        use: 'babel-loader'
+      }
+    ]
+  },
+  
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        parallel: true
+      }),
+      new CssMinimizerPlugin({
+        parallel: true
+      })
+    ],
+    moduleIds: 'deterministic',
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        }
+      }
+    }
+  },
+  
+  resolve: {
+    extensions: ['.js', '.jsx'],
+    modules: [path.resolve(__dirname, 'node_modules')]
+  }
+};
+```
+</CodeGroup>
+
+## Performance Checklist
+
+<Steps>
+  <Step title="Enable filesystem cache">
+    ```javascript
+    cache: { type: 'filesystem' }
+    ```
+  </Step>
+
+  <Step title="Use appropriate source maps">
+    Development: `eval-cheap-module-source-map`
+    Production: `source-map`
+  </Step>
+
+  <Step title="Limit loader scope">
+    Use `include` or `exclude` for all loaders
+  </Step>
+
+  <Step title="TypeScript: use transpileOnly">
+    With ForkTsCheckerWebpackPlugin
+  </Step>
+
+  <Step title="Enable lazy compilation (dev)">
+    ```javascript
+    experiments: { lazyCompilation: true }
+    ```
+  </Step>
+
+  <Step title="Minimize resolve.extensions">
+    Only include necessary extensions
+  </Step>
+
+  <Step title="Use parallel processing">
+    TerserPlugin and CssMinimizerPlugin with `parallel: true`
+  </Step>
+
+  <Step title="Measure and analyze">
+    Use speed-measure-plugin and bundle-analyzer
+  </Step>
+</Steps>
+
+<Tip>
+  Filesystem cache is the single most impactful optimization for webpack 5 build performance.
+</Tip>

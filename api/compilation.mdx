@@ -1,0 +1,388 @@
+---
+title: Compilation
+description: API reference for webpack's Compilation class
+---
+
+The `Compilation` class represents a single build of versioned assets. It provides access to all modules, chunks, assets, and the module graph.
+
+## Constructor
+
+<ParamField path="compiler" type="Compiler" required>
+  The compiler instance creating this compilation
+</ParamField>
+
+<ParamField path="params" type="CompilationParams" required>
+  Compilation parameters including module factories
+</ParamField>
+
+```javascript
+// Usually created by the Compiler
+const compilation = new Compilation(compiler, params);
+```
+
+## Properties
+
+<ResponseField name="compiler" type="Compiler">
+  Reference to the parent Compiler instance
+</ResponseField>
+
+<ResponseField name="options" type="WebpackOptions">
+  The webpack configuration options
+</ResponseField>
+
+<ResponseField name="outputOptions" type="OutputOptions">
+  The output configuration from webpack options
+</ResponseField>
+
+<ResponseField name="hooks" type="object">
+  Tapable hooks for the compilation lifecycle. See [Compilation Hooks](/api/plugins/compilation-hooks) for details.
+</ResponseField>
+
+<ResponseField name="modules" type="Set<Module>">
+  All modules included in this compilation
+</ResponseField>
+
+<ResponseField name="chunks" type="Set<Chunk>">
+  All chunks created in this compilation
+</ResponseField>
+
+<ResponseField name="chunkGroups" type="ChunkGroup[]">
+  All chunk groups in the compilation
+</ResponseField>
+
+<ResponseField name="entrypoints" type="Map<string, Entrypoint>">
+  Map of entry names to their Entrypoint objects
+</ResponseField>
+
+<ResponseField name="assets" type="CompilationAssets">
+  Object containing all emitted assets (filename -> Source)
+</ResponseField>
+
+<ResponseField name="assetsInfo" type="Map<string, AssetInfo>">
+  Map of asset names to their metadata
+</ResponseField>
+
+<ResponseField name="errors" type="WebpackError[]">
+  Array of errors that occurred during compilation
+</ResponseField>
+
+<ResponseField name="warnings" type="WebpackError[]">
+  Array of warnings that occurred during compilation
+</ResponseField>
+
+<ResponseField name="hash" type="string | undefined">
+  The compilation hash
+</ResponseField>
+
+<ResponseField name="moduleGraph" type="ModuleGraph">
+  The module graph for this compilation
+</ResponseField>
+
+<ResponseField name="chunkGraph" type="ChunkGraph">
+  The chunk graph for this compilation
+</ResponseField>
+
+<ResponseField name="fileDependencies" type="LazySet<string>">
+  Set of file paths this compilation depends on
+</ResponseField>
+
+<ResponseField name="contextDependencies" type="LazySet<string>">
+  Set of directory paths this compilation depends on
+</ResponseField>
+
+<ResponseField name="missingDependencies" type="LazySet<string>">
+  Set of missing file paths
+</ResponseField>
+
+## Methods
+
+### addModule()
+
+Adds a module to the compilation. Internal method called during the build process.
+
+<ParamField path="module" type="Module" required>
+  The module to add
+</ParamField>
+
+<ParamField path="callback" type="(err?: Error, module?: Module) => void" required>
+  Callback invoked when the module is added
+</ParamField>
+
+### getStats()
+
+Returns a Stats object for this compilation.
+
+<ResponseField name="return" type="Stats">
+  A Stats instance wrapping this compilation
+</ResponseField>
+
+```javascript
+compiler.hooks.done.tap('MyPlugin', (stats) => {
+  const compilation = stats.compilation;
+  const statsObj = compilation.getStats();
+});
+```
+
+### createStatsOptions()
+
+Creates normalized stats options from various input formats.
+
+<ParamField path="optionsOrPreset" type="string | boolean | StatsOptions" required>
+  Stats options, preset name, or boolean
+</ParamField>
+
+<ParamField path="context" type="CreateStatsOptionsContext">
+  Additional context for stats creation
+</ParamField>
+
+<ResponseField name="return" type="NormalizedStatsOptions">
+  Normalized stats options object
+</ResponseField>
+
+```javascript
+const statsOptions = compilation.createStatsOptions('verbose');
+```
+
+### getCache()
+
+Returns a cache facade for the specified cache namespace.
+
+<ParamField path="name" type="string" required>
+  The cache namespace
+</ParamField>
+
+<ResponseField name="return" type="CacheFacade">
+  A cache facade instance
+</ResponseField>
+
+```javascript
+const cache = compilation.getCache('MyPlugin/somethingExpensive');
+```
+
+### getLogger()
+
+Creates a logger for the specified name.
+
+<ParamField path="name" type="string | (() => string)" required>
+  Logger name or function returning the name
+</ParamField>
+
+<ResponseField name="return" type="Logger">
+  A logger instance
+</ResponseField>
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      const logger = compilation.getLogger('MyPlugin');
+      logger.log('Plugin initialized');
+    });
+  }
+}
+```
+
+### emitAsset()
+
+Emits an asset to the compilation output.
+
+<ParamField path="file" type="string" required>
+  The filename for the asset
+</ParamField>
+
+<ParamField path="source" type="Source" required>
+  The source content for the asset
+</ParamField>
+
+<ParamField path="assetInfo" type="AssetInfo">
+  Metadata about the asset
+</ParamField>
+
+```javascript
+const { RawSource } = require('webpack-sources');
+
+compilation.emitAsset(
+  'my-file.json',
+  new RawSource(JSON.stringify(data)),
+  {
+    minimized: false,
+    development: false
+  }
+);
+```
+
+### updateAsset()
+
+Updates an existing asset in the compilation.
+
+<ParamField path="file" type="string" required>
+  The filename of the asset to update
+</ParamField>
+
+<ParamField path="newSourceOrFunction" type="Source | ((source: Source) => Source)" required>
+  New source or function that transforms the existing source
+</ParamField>
+
+<ParamField path="assetInfoUpdateOrFunction" type="AssetInfo | ((assetInfo: AssetInfo) => AssetInfo)">
+  New asset info or function to update it
+</ParamField>
+
+### deleteAsset()
+
+Deletes an asset from the compilation.
+
+<ParamField path="file" type="string" required>
+  The filename of the asset to delete
+</ParamField>
+
+```javascript
+compilation.deleteAsset('unwanted-file.js');
+```
+
+### getAsset()
+
+Retrieves information about an asset.
+
+<ParamField path="name" type="string" required>
+  The asset filename
+</ParamField>
+
+<ResponseField name="return" type="Asset | undefined">
+  The asset object or undefined if not found
+</ResponseField>
+
+```javascript
+const asset = compilation.getAsset('main.js');
+if (asset) {
+  console.log('Asset size:', asset.source.size());
+}
+```
+
+### getAssets()
+
+Returns all assets in the compilation.
+
+<ResponseField name="return" type="Asset[]">
+  Array of all assets
+</ResponseField>
+
+```javascript
+const assets = compilation.getAssets();
+assets.forEach(asset => {
+  console.log(asset.name, asset.info);
+});
+```
+
+### getPath()
+
+Interpolates a filename template with data.
+
+<ParamField path="filename" type="string" required>
+  The filename template (e.g., '[name].[contenthash].js')
+</ParamField>
+
+<ParamField path="data" type="PathData" required>
+  Data for template interpolation
+</ParamField>
+
+<ResponseField name="return" type="string">
+  The interpolated filename
+</ResponseField>
+
+```javascript
+const filename = compilation.getPath('[name].[contenthash].js', {
+  chunk: myChunk,
+  contentHashType: 'javascript'
+});
+```
+
+### addEntry()
+
+Adds an entry point to the compilation.
+
+<ParamField path="context" type="string" required>
+  The context path for resolving the entry
+</ParamField>
+
+<ParamField path="entry" type="Dependency" required>
+  The entry dependency
+</ParamField>
+
+<ParamField path="options" type="EntryOptions" required>
+  Entry options including name and runtime
+</ParamField>
+
+<ParamField path="callback" type="(err?: Error, module?: Module) => void" required>
+  Callback invoked when entry is added
+</ParamField>
+
+## Hooks
+
+The Compilation exposes numerous hooks for different stages:
+
+### Module Hooks
+- `buildModule` - Called before a module build
+- `succeedModule` - Called when a module has been built successfully
+- `finishModules` - Called when all modules have finished building
+
+### Optimization Hooks
+- `optimize` - Called at the start of optimization phase
+- `optimizeModules` - Called to optimize modules
+- `optimizeChunks` - Called to optimize chunks
+- `optimizeTree` - Called to optimize the module and chunk tree
+
+### Asset Processing Hooks
+- `processAssets` - Main hook for processing assets
+- `afterProcessAssets` - Called after assets have been processed
+
+### Sealing Hooks
+- `seal` - Called when the compilation is sealed
+- `afterSeal` - Called after the compilation is sealed
+
+For complete documentation, see [Compilation Hooks](/api/plugins/compilation-hooks).
+
+## Example: Plugin Usage
+
+```javascript
+class MyCompilationPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      // Access compilation properties
+      console.log('Modules:', compilation.modules.size);
+      console.log('Chunks:', compilation.chunks.size);
+      
+      // Tap into compilation hooks
+      compilation.hooks.optimizeChunks.tap('MyPlugin', (chunks) => {
+        for (const chunk of chunks) {
+          console.log('Optimizing chunk:', chunk.name);
+        }
+      });
+      
+      // Process assets
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'MyPlugin',
+          stage: compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+        },
+        (assets) => {
+          for (const name in assets) {
+            console.log('Processing asset:', name);
+          }
+        }
+      );
+      
+      // Emit custom asset
+      compilation.hooks.afterOptimizeAssets.tap('MyPlugin', () => {
+        const { RawSource } = require('webpack-sources');
+        compilation.emitAsset(
+          'metadata.json',
+          new RawSource(JSON.stringify({
+            chunks: compilation.chunks.size,
+            modules: compilation.modules.size
+          }))
+        );
+      });
+    });
+  }
+}
+```

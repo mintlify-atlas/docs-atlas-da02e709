@@ -1,0 +1,139 @@
+---
+title: webpack()
+description: The Node.js API for webpack provides a way to invoke webpack programmatically from your Node.js scripts.
+---
+
+The `webpack()` function is the primary entry point for using webpack from Node.js. It accepts a webpack configuration object and an optional callback function.
+
+## Function Signature
+
+```javascript
+const webpack = require('webpack');
+
+webpack(options, callback);
+```
+
+## Parameters
+
+<ParamField path="options" type="WebpackOptions | WebpackOptions[]" required>
+  A webpack configuration object or an array of configuration objects for multi-compiler mode.
+</ParamField>
+
+<ParamField path="callback" type="function">
+  Optional callback function that is called when the compilation completes. Receives `(err, stats)` as arguments.
+  
+  - `err`: Error object if compilation failed
+  - `stats`: Stats object containing compilation information
+</ParamField>
+
+## Return Value
+
+- Returns a `Compiler` instance when a single configuration is passed
+- Returns a `MultiCompiler` instance when an array of configurations is passed
+- Returns `null` if a callback is provided and an error occurs during initialization
+
+## Usage Examples
+
+### Basic Usage with Callback
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+webpack(config, (err, stats) => {
+  if (err || stats.hasErrors()) {
+    console.error(err || stats.toString());
+    return;
+  }
+
+  console.log(stats.toString({
+    colors: true
+  }));
+});
+```
+
+### Without Callback
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+const compiler = webpack(config);
+
+compiler.run((err, stats) => {
+  compiler.close((closeErr) => {
+    // Handle errors
+  });
+});
+```
+
+### Multi-Compiler Mode
+
+```javascript
+const webpack = require('webpack');
+const config1 = require('./webpack.config1.js');
+const config2 = require('./webpack.config2.js');
+
+const multiCompiler = webpack([config1, config2], (err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log(stats.toString());
+});
+```
+
+### Watch Mode
+
+When the `watch` option is set in your configuration, you must provide a callback:
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+config.watch = true;
+config.watchOptions = {
+  aggregateTimeout: 300,
+  poll: 1000
+};
+
+webpack(config, (err, stats) => {
+  if (err || stats.hasErrors()) {
+    console.error(err || stats.toString());
+  }
+  console.log('Compilation complete');
+});
+```
+
+<Warning>
+  When using watch mode, a callback is required. Without a callback, watch mode cannot be properly handled.
+</Warning>
+
+## Behavior
+
+1. **Validation**: The function validates the configuration against the webpack schema
+2. **Compiler Creation**: Creates a `Compiler` or `MultiCompiler` instance
+3. **Execution**:
+   - If a callback is provided and `watch` is enabled, starts watch mode
+   - If a callback is provided without watch mode, runs a single compilation
+   - If no callback is provided, returns the compiler instance for manual control
+
+## Error Handling
+
+If an error occurs during initialization and a callback is provided, the error is passed to the callback on the next tick:
+
+```javascript
+webpack(invalidConfig, (err, stats) => {
+  if (err) {
+    console.error('Webpack initialization error:', err);
+    return;
+  }
+});
+```
+
+## See Also
+
+- [Compiler API](/api/node/compiler-api) - Methods available on the Compiler instance
+- [Watching](/api/node/watching) - Details about watch mode
+- [Stats Object](/api/stats) - Information about compilation results

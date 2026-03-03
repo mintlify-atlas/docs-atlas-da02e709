@@ -1,0 +1,320 @@
+---
+title: Output
+description: Configure how webpack writes compiled files to disk
+---
+
+The **output** property tells webpack where to emit the bundles it creates and how to name these files.
+
+## Basic Configuration
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+## Output Path
+
+From the `Compiler.js` source, the output path is set on the compiler:
+
+```javascript Compiler.js
+class Compiler {
+  constructor(context, options = {}) {
+    // Output path is set from configuration
+    this.outputPath = "";
+    
+    // File systems for reading and writing
+    this.outputFileSystem = null;
+    this.inputFileSystem = null;
+  }
+}
+```
+
+## Filename Templates
+
+Webpack supports various placeholders in filenames:
+
+<Tabs>
+  <Tab title="Module-based">
+    ```javascript
+    {
+      output: {
+        filename: '[name].[contenthash].js'
+      }
+    }
+    ```
+    
+    Placeholders:
+    - `[name]` - Module name or chunk name
+    - `[id]` - Module identifier  
+    - `[contenthash]` - Hash of content
+    - `[hash]` - Compilation hash
+    - `[chunkhash]` - Chunk hash
+  </Tab>
+  
+  <Tab title="Function">
+    ```javascript
+    {
+      output: {
+        filename: (pathData) => {
+          return pathData.chunk.name === 'main' 
+            ? '[name].js'
+            : '[name]/[name].js';
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Output File System
+
+Based on `Compiler.js`, webpack uses file system abstractions:
+
+```javascript
+// Output file system (where bundles are written)
+compiler.outputFileSystem = require('fs');
+
+// Intermediate file system (for caching)
+compiler.intermediateFileSystem = null;
+
+// Input file system (for reading source files)
+compiler.inputFileSystem = require('fs');
+```
+
+## Multiple Entry Points
+
+When using multiple entry points, use substitutions to ensure unique filenames:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    app: './src/app.js',
+    search: './src/search.js'
+  },
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+Output:
+```
+dist/
+  app.bundle.js
+  search.bundle.js
+```
+
+## Public Path
+
+The `publicPath` specifies the public URL of the output directory:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: 'https://cdn.example.com/assets/'
+  }
+};
+```
+
+<Note>
+The `publicPath` is used for on-demand loading or loading external resources like images, files, etc.
+</Note>
+
+## Asset Modules
+
+From `NormalModule.js`, webpack handles asset output:
+
+```javascript NormalModule.js
+class NormalModule {
+  createSourceForAsset(context, name, content, sourceMap) {
+    // Asset file generation
+    if (sourceMap) {
+      if (this.useSourceMap) {
+        return new SourceMapSource(
+          content,
+          name,
+          contextifySourceMap(context, sourceMap)
+        );
+      }
+    }
+    return new RawSource(content);
+  }
+}
+```
+
+## Library Output
+
+Expose your bundle as a library:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    library: 'MyLibrary',
+    libraryTarget: 'umd',
+    filename: 'my-library.js'
+  }
+};
+```
+
+Library targets:
+- `var` - Variable assignment
+- `assign` - Property assignment  
+- `this` - Assign to `this`
+- `window` - Assign to `window`
+- `global` - Assign to `global`
+- `commonjs` - Export to `exports`
+- `commonjs2` - Export to `module.exports`
+- `amd` - AMD module
+- `umd` - Universal Module Definition
+- `module` - ES2015 module
+
+## Chunk Loading
+
+Webpack supports different chunk loading mechanisms:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    chunkLoading: 'jsonp', // or 'import', 'require', 'async-node'
+    chunkFormat: 'array-push' // or 'commonjs', 'module'
+  }
+};
+```
+
+## Hash Options
+
+Configure hashing for long-term caching:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    hashFunction: 'xxhash64',  // 'md4', 'xxhash64'
+    hashDigest: 'hex',         // 'hex', 'latin1', 'base64'
+    hashDigestLength: 20,      // Hash length
+    hashSalt: 'my-salt'        // Optional salt
+  }
+};
+```
+
+From the loader context in `NormalModule.js`:
+
+```javascript
+loaderContext = {
+  hashFunction: options.output.hashFunction,
+  hashDigest: options.output.hashDigest,
+  hashDigestLength: options.output.hashDigestLength,
+  hashSalt: options.output.hashSalt
+};
+```
+
+## Clean Output
+
+Automatically clean the output directory:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    clean: true, // Clean before emit
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+## Source Maps
+
+Control source map generation:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    sourceMapFilename: '[name].js.map',
+    devtoolModuleFilenameTemplate: 'webpack://[namespace]/[resource-path]',
+    devtoolFallbackModuleFilenameTemplate: 'webpack://[namespace]/[resourcePath]?[hash]'
+  }
+};
+```
+
+## Module Output
+
+ES Module output format:
+
+```javascript webpack.config.js
+module.exports = {
+  experiments: {
+    outputModule: true
+  },
+  output: {
+    module: true,
+    chunkFormat: 'module',
+    library: {
+      type: 'module'
+    }
+  }
+};
+```
+
+<Warning>
+The `module` output format requires `experiments.outputModule` to be enabled and is currently experimental.
+</Warning>
+
+## Asset Module Filenames
+
+Configure asset module output:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    assetModuleFilename: 'assets/[hash][ext][query]'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(png|jpg|gif)$/i,
+        type: 'asset/resource'
+      }
+    ]
+  }
+};
+```
+
+## Worker Output
+
+Configure Web Worker output:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    workerChunkLoading: 'import-scripts',
+    workerPublicPath: '/workers/'
+  }
+};
+```
+
+## Performance
+
+Based on compilation output:
+
+```javascript
+// Webpack emits files during the emit phase
+compiler.hooks.emit.tapAsync('emit', (compilation, callback) => {
+  // Write all assets to output file system
+  for (const [filename, source] of compilation.assets) {
+    outputFileSystem.writeFile(path.join(outputPath, filename), source);
+  }
+});
+```
+
+## Related Configuration
+
+- [Entry Points](/concepts/entry-points) - Define entry modules
+- [Mode](/concepts/mode) - Set build mode (production/development)
+- [Targets](/concepts/targets) - Set deployment target environment

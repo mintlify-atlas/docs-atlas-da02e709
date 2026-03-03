@@ -1,0 +1,241 @@
+---
+title: Configuration Overview
+description: Comprehensive guide to webpack configuration options and how to set up your webpack.config.js file
+---
+
+webpack uses a configuration file to define how it should process and bundle your application. This section provides detailed documentation for all configuration options available in webpack.
+
+## Configuration File
+
+webpack expects a configuration file named `webpack.config.js` in the root of your project. This file should export a configuration object:
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'bundle.js'
+  }
+};
+```
+
+## Configuration Object
+
+The webpack configuration object contains various top-level properties that control different aspects of the build:
+
+### Core Options
+
+<CardGroup cols={2}>
+  <Card title="Entry and Context" icon="arrow-right-to-bracket" href="/configuration/entry-context">
+    Define entry points and base directory for resolving paths
+  </Card>
+  <Card title="Output" icon="box" href="/configuration/output">
+    Configure how and where webpack outputs bundles and assets
+  </Card>
+  <Card title="Module" icon="cube" href="/configuration/module">
+    Configure module resolution, loaders, and parsing
+  </Card>
+  <Card title="Resolve" icon="magnifying-glass" href="/configuration/resolve">
+    Customize module resolution behavior
+  </Card>
+</CardGroup>
+
+### Optimization & Performance
+
+<CardGroup cols={2}>
+  <Card title="Optimization" icon="gauge-high" href="/configuration/optimization">
+    Control code splitting, minimization, and tree shaking
+  </Card>
+  <Card title="Performance" icon="chart-line" href="/configuration/performance">
+    Set performance hints and asset size limits
+  </Card>
+</CardGroup>
+
+### Development Tools
+
+<CardGroup cols={2}>
+  <Card title="Dev Server" icon="server" href="/configuration/dev-server">
+    Configure webpack-dev-server for development
+  </Card>
+  <Card title="Devtool" icon="bug" href="/configuration/devtool">
+    Control source map generation for debugging
+  </Card>
+  <Card title="Watch" icon="eye" href="/configuration/watch">
+    Configure watch mode for automatic rebuilds
+  </Card>
+</CardGroup>
+
+### Advanced Options
+
+<CardGroup cols={2}>
+  <Card title="Target" icon="bullseye" href="/configuration/target">
+    Specify deployment environment (web, node, electron, etc.)
+  </Card>
+  <Card title="Externals" icon="link-slash" href="/configuration/externals">
+    Exclude dependencies from bundles
+  </Card>
+  <Card title="Node" icon="n" href="/configuration/node">
+    Configure Node.js polyfills and mocks
+  </Card>
+  <Card title="Stats" icon="chart-bar" href="/configuration/stats">
+    Control compilation output statistics
+  </Card>
+</CardGroup>
+
+## Configuration Types
+
+webpack supports multiple configuration formats:
+
+### Object Export
+
+```javascript
+module.exports = {
+  // configuration
+};
+```
+
+### Function Export
+
+Receives environment and argv as parameters:
+
+```javascript
+module.exports = (env, argv) => {
+  return {
+    mode: env.production ? 'production' : 'development',
+    devtool: env.production ? 'source-map' : 'eval',
+    // more options
+  };
+};
+```
+
+### Promise Export
+
+Return a Promise that resolves to a configuration:
+
+```javascript
+module.exports = () => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        entry: './app.js',
+        // more options
+      });
+    }, 5000);
+  });
+};
+```
+
+### Multiple Configurations
+
+Export an array of configurations:
+
+```javascript
+module.exports = [
+  {
+    entry: './src/app.js',
+    output: { filename: 'app.js' }
+  },
+  {
+    entry: './src/vendor.js',
+    output: { filename: 'vendor.js' }
+  }
+];
+```
+
+## Mode
+
+<ParamField path="mode" type="'development' | 'production' | 'none'">
+  Enable built-in optimizations for the specified environment.
+  
+  **Default:** `'production'`
+  
+  - `'development'`: Optimized for build speed and debugging
+  - `'production'`: Optimized for runtime performance and smaller bundle size
+  - `'none'`: No default optimizations
+</ParamField>
+
+## Context
+
+<ParamField path="context" type="string">
+  The base directory (absolute path) for resolving entry points and loaders.
+  
+  **Default:** `process.cwd()` (current working directory)
+</ParamField>
+
+```javascript
+module.exports = {
+  context: path.resolve(__dirname, 'app')
+};
+```
+
+## Other Top-Level Options
+
+<ParamField path="name" type="string">
+  Name of the configuration. Used when loading multiple configurations.
+</ParamField>
+
+<ParamField path="bail" type="boolean">
+  Report the first error as a hard error instead of tolerating it.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="cache" type="boolean | object">
+  Cache generated modules and chunks to improve performance for multiple incremental builds.
+  
+  **Default:** `false` in production, `{ type: 'memory' }` in development
+</ParamField>
+
+<ParamField path="dependencies" type="string[]">
+  References to other configurations to depend on.
+</ParamField>
+
+<ParamField path="profile" type="boolean">
+  Capture timing information for each module.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="parallelism" type="number">
+  The number of parallel processed modules in the compilation.
+  
+  **Default:** `100`
+</ParamField>
+
+## Example Configuration
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  context: path.resolve(__dirname, 'src'),
+  entry: './index.js',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].[contenthash].js'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: 'babel-loader'
+      }
+    ]
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all'
+    }
+  }
+};
+```
+
+## See Also
+
+- [Webpack Official Configuration Docs](https://webpack.js.org/configuration/)
+- [Webpack Concepts](https://webpack.js.org/concepts/)

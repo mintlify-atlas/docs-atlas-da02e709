@@ -1,0 +1,184 @@
+---
+title: BannerPlugin
+description: Add a banner to the top or bottom of each generated chunk
+---
+
+Adds a banner (comment) to the top or bottom of each generated chunk.
+
+## Usage
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.BannerPlugin({
+      banner: '/*! Copyright (c) 2024 MyCompany */'
+    })
+  ]
+};
+```
+
+## Constructor
+
+The plugin accepts either a string, function, or options object:
+
+```js
+// String format
+new webpack.BannerPlugin('banner text');
+
+// Function format
+new webpack.BannerPlugin(() => {
+  return `Build: ${new Date().toLocaleString()}`;
+});
+
+// Options object
+new webpack.BannerPlugin({
+  banner: 'banner text',
+  raw: false,
+  entryOnly: false
+});
+```
+
+## Options
+
+<ParamField path="banner" type="string | function" required>
+  The banner text to add. Can be a string or a function that returns a string.
+
+  When using a function, it receives an object with the following properties:
+  - `hash` - The compilation hash
+  - `chunk` - The chunk object
+  - `filename` - The filename being processed
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: (data) => {
+      return `File: ${data.filename}\nChunk: ${data.chunk.name}`;
+    }
+  });
+  ```
+</ParamField>
+
+<ParamField path="raw" type="boolean" default={false}>
+  If `true`, the banner will not be wrapped in a comment.
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: '#!/usr/bin/env node',
+    raw: true
+  });
+  ```
+</ParamField>
+
+<ParamField path="entryOnly" type="boolean" default={false}>
+  If `true`, the banner will only be added to entry chunks.
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: 'This is an entry chunk',
+    entryOnly: true
+  });
+  ```
+</ParamField>
+
+<ParamField path="test" type="string | RegExp | Array<string | RegExp>">
+  Include all modules that pass test assertion.
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: 'JS files only',
+    test: /\.js$/
+  });
+  ```
+</ParamField>
+
+<ParamField path="include" type="string | RegExp | Array<string | RegExp>">
+  Include all modules matching any of these conditions.
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: 'Source files',
+    include: /\/src\//
+  });
+  ```
+</ParamField>
+
+<ParamField path="exclude" type="string | RegExp | Array<string | RegExp>">
+  Exclude all modules matching any of these conditions.
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: 'No vendor files',
+    exclude: /node_modules/
+  });
+  ```
+</ParamField>
+
+<ParamField path="footer" type="boolean" default={false}>
+  If `true`, the banner will be placed at the end of the output instead of the beginning.
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: '/* End of file */',
+    footer: true
+  });
+  ```
+</ParamField>
+
+<ParamField path="stage" type="number">
+  The compilation stage at which the banner should be added. Uses webpack's `PROCESS_ASSETS_STAGE_*` constants.
+
+  ```js
+  new webpack.BannerPlugin({
+    banner: 'Custom timing',
+    stage: webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+  });
+  ```
+</ParamField>
+
+## Examples
+
+### Add Copyright Notice
+
+```js
+new webpack.BannerPlugin({
+  banner: '/*! Copyright (c) 2024 MyCompany. All rights reserved. */'
+});
+```
+
+### Add Shebang for CLI Tools
+
+```js
+new webpack.BannerPlugin({
+  banner: '#!/usr/bin/env node',
+  raw: true,
+  entryOnly: true,
+  test: /\.js$/
+});
+```
+
+### Dynamic Build Information
+
+```js
+new webpack.BannerPlugin({
+  banner: () => {
+    return [
+      '/**',
+      ` * Build date: ${new Date().toISOString()}`,
+      ` * Version: ${process.env.npm_package_version}`,
+      ' */',
+    ].join('\n');
+  }
+});
+```
+
+### Add Source Map Pragma
+
+```js
+new webpack.BannerPlugin({
+  banner: '//# sourceMappingURL=[url]',
+  raw: true,
+  entryOnly: false,
+  test: /\.js$/
+});
+```

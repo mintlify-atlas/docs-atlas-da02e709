@@ -1,0 +1,491 @@
+---
+title: Targets
+description: Configure webpack to compile for specific deployment environments
+---
+
+Webpack can compile for multiple **targets** defined in the configuration. This tells webpack how to bundle and what runtime features are available.
+
+## Target Configuration
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'web' // Default target
+};
+```
+
+## Available Targets
+
+From `Compiler.js` and platform configuration:
+
+<Tabs>
+  <Tab title="Web">
+    ```javascript
+    module.exports = {
+      target: 'web' // Browser environment
+    };
+    ```
+    
+    Features:
+    - Uses `fetch`, `XMLHttpRequest` for chunk loading
+    - Uses `window` as global object
+    - Imports from `web` platform modules
+  </Tab>
+  
+  <Tab title="Node">
+    ```javascript
+    module.exports = {
+      target: 'node' // Node.js environment
+    };
+    ```
+    
+    Features:
+    - Uses `require()` for chunk loading
+    - Uses `global` as global object  
+    - Built-in modules like `fs`, `path` are external
+  </Tab>
+  
+  <Tab title="WebWorker">
+    ```javascript
+    module.exports = {
+      target: 'webworker' // Web Worker
+    };
+    ```
+    
+    Features:
+    - Uses `importScripts` for chunk loading
+    - Uses `self` as global object
+    - No DOM access
+  </Tab>
+  
+  <Tab title="Electron">
+    ```javascript
+    module.exports = {
+      target: 'electron-main'     // Main process
+      // or 'electron-renderer'   // Renderer process  
+      // or 'electron-preload'    // Preload script
+    };
+    ```
+  </Tab>
+</Tabs>
+
+## Platform Properties
+
+From `Compiler.js`, platform configuration:
+
+```javascript Compiler.js
+class Compiler {
+  constructor(context, options) {
+    this.platform = {
+      web: null,      // Web platform
+      browser: null,  // Browser-specific
+      webworker: null,// Web worker
+      node: null,     // Node.js
+      nwjs: null,     // NW.js
+      electron: null  // Electron
+    };
+  }
+}
+```
+
+## Target Details
+
+### Web Target
+
+Default browser environment:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'web',
+  output: {
+    // Chunk loading via script tags
+    chunkLoading: 'jsonp',
+    // WebAssembly loading
+    wasmLoading: 'fetch',
+    // Global object
+    globalObject: 'window'
+  }
+};
+```
+
+### Node Target
+
+Server-side rendering and Node.js applications:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'node',
+  output: {
+    // Chunk loading via require
+    chunkLoading: 'require',
+    // CommonJS output
+    libraryTarget: 'commonjs2',
+    // Global object
+    globalObject: 'global'
+  },
+  // Node built-ins are external
+  externalsPresets: { node: true }
+};
+```
+
+### Multiple Targets
+
+Compile for multiple targets:
+
+```javascript webpack.config.js
+module.exports = [
+  // Browser build
+  {
+    target: 'web',
+    entry: './src/index.js',
+    output: {
+      path: path.resolve(__dirname, 'dist/web'),
+      filename: 'bundle.js'
+    }
+  },
+  // Node build
+  {
+    target: 'node',
+    entry: './src/index.js',
+    output: {
+      path: path.resolve(__dirname, 'dist/node'),
+      filename: 'bundle.js'
+    }
+  }
+];
+```
+
+## Async Target
+
+For async WebAssembly:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'web',
+  experiments: {
+    asyncWebAssembly: true
+  },
+  output: {
+    wasmLoading: 'fetch'
+  }
+};
+```
+
+## Externals Presets
+
+Targets influence external module handling:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'node',
+  externalsPresets: {
+    node: true  // Automatically set based on target
+  }
+};
+
+// Node built-ins become external
+import fs from 'fs';
+import path from 'path';
+
+// Compiled as:
+const fs = require('fs');
+const path = require('path');
+```
+
+From `WebpackOptionsApply.js`:
+```javascript
+if (options.externalsPresets.node) {
+  const NodeTargetPlugin = require('./node/NodeTargetPlugin');
+  new NodeTargetPlugin(
+    options.output.module ? 'module-import' : 'node-commonjs'
+  ).apply(compiler);
+}
+```
+
+## Browserslist Integration
+
+Target can use browserslist:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'browserslist' // Uses .browserslistrc or package.json
+};
+```
+
+```json package.json
+{
+  "browserslist": [
+    "last 2 versions",
+    "> 1%",
+    "not dead"
+  ]
+}
+```
+
+## Custom Targets
+
+Specify exact ECMAScript version:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'es5',     // ES5 compatible
+  // or 'es2015',    // ES2015 (ES6)
+  // or 'es2020'     // ES2020
+};
+```
+
+## Output Configuration
+
+Targets affect output configuration:
+
+<CodeGroup>
+```javascript Web Output
+{
+  target: 'web',
+  output: {
+    chunkLoading: 'jsonp',
+    chunkFormat: 'array-push',
+    wasmLoading: 'fetch',
+    globalObject: 'window',
+    publicPath: '/assets/'
+  }
+}
+```
+
+```javascript Node Output
+{
+  target: 'node',
+  output: {
+    chunkLoading: 'require',
+    chunkFormat: 'commonjs',
+    wasmLoading: 'async-node',
+    globalObject: 'global',
+    library: {
+      type: 'commonjs2'
+    }
+  }
+}
+```
+
+```javascript Worker Output
+{
+  target: 'webworker',
+  output: {
+    chunkLoading: 'import-scripts',
+    chunkFormat: 'array-push',
+    wasmLoading: 'fetch',
+    globalObject: 'self'
+  }
+}
+```
+</CodeGroup>
+
+## Library Targets
+
+When building libraries:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'web',
+  output: {
+    library: {
+      name: 'MyLibrary',
+      type: 'umd',  // Universal Module Definition
+      export: 'default'
+    },
+    globalObject: 'this'
+  }
+};
+```
+
+Library types:
+- `var` - Variable assignment
+- `assign` - Object property  
+- `this` - Assign to `this`
+- `window` - Browser global
+- `global` - Node.js global
+- `commonjs` - CommonJS export
+- `commonjs2` - module.exports
+- `amd` - AMD module
+- `umd` - Universal (all of above)
+- `module` - ES Module
+
+## Electron Targets
+
+From `WebpackOptionsApply.js`, Electron configurations:
+
+```javascript
+if (options.externalsPresets.electron) {
+  if (options.externalsPresets.electronMain) {
+    new ElectronTargetPlugin('main').apply(compiler);
+  }
+  if (options.externalsPresets.electronPreload) {
+    new ElectronTargetPlugin('preload').apply(compiler);
+  }
+  if (options.externalsPresets.electronRenderer) {
+    new ElectronTargetPlugin('renderer').apply(compiler);
+  }
+}
+```
+
+### Main Process
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'electron-main',
+  entry: './src/main.js',
+  output: {
+    filename: 'main.js'
+  }
+};
+```
+
+### Renderer Process
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'electron-renderer',
+  entry: './src/renderer.js',
+  output: {
+    filename: 'renderer.js'
+  }
+};
+```
+
+### Preload Script
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'electron-preload',
+  entry: './src/preload.js',
+  output: {
+    filename: 'preload.js'
+  }
+};
+```
+
+## Node Versions
+
+Target specific Node.js versions:
+
+```javascript webpack.config.js
+module.exports = {
+  target: 'node16',    // Node.js 16
+  // or 'node14',      // Node.js 14
+  // or 'node18'       // Node.js 18
+};
+```
+
+## Runtime Globals
+
+Different targets have different globals:
+
+<CodeGroup>
+```javascript Web
+// Available globals
+window
+document  
+navigator
+location
+fetch
+```
+
+```javascript Node
+// Available globals
+global
+process
+Buffer
+__dirname
+__filename
+require
+```
+
+```javascript WebWorker  
+// Available globals
+self
+importScripts
+postMessage
+// No window or document
+```
+</CodeGroup>
+
+## ESBuild Compatibility
+
+Compile for modern browsers:
+
+```javascript webpack.config.js
+module.exports = {
+  target: ['web', 'es2020'],
+  output: {
+    environment: {
+      arrowFunction: true,
+      bigIntLiteral: true,
+      const: true,
+      destructuring: true,
+      dynamicImport: true,
+      forOf: true,
+      module: true
+    }
+  }
+};
+```
+
+## Chunk Loading Methods
+
+Based on target:
+
+```javascript
+// Web: JSONP (script tags)
+chunkLoading: 'jsonp'
+
+// Node: CommonJS require  
+chunkLoading: 'require'
+
+// WebWorker: importScripts
+chunkLoading: 'import-scripts'
+
+// Modern: ES Module imports
+chunkLoading: 'import'
+```
+
+<Note>
+The chunk loading method determines how webpack loads additional chunks at runtime.
+</Note>
+
+## False Target
+
+Disable all target-specific features:
+
+```javascript webpack.config.js
+module.exports = {
+  target: false,
+  output: {
+    // Must manually configure all options
+    chunkLoading: 'jsonp',
+    chunkFormat: 'array-push',
+    globalObject: 'this'
+  }
+};
+```
+
+<Warning>
+Using `target: false` requires manually configuring all platform-specific options.
+</Warning>
+
+## Function Target
+
+Dynamic target selection:
+
+```javascript webpack.config.js
+module.exports = {
+  target: (compiler) => {
+    compiler.options.output.globalObject = 'this';
+    // Apply custom target-specific plugins
+  }
+};
+```
+
+## Related Configuration
+
+- [Output](/concepts/output) - Configure compilation output
+- [Mode](/concepts/mode) - Set optimization mode  
+- [Externals](/configuration/externals) - Mark modules as external

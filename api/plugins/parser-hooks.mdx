@@ -1,0 +1,608 @@
+---
+title: Parser Hooks
+description: Reference for JavaScript parser hooks available to webpack plugins
+---
+
+The JavaScript parser in webpack analyzes each module's source code and emits hooks that plugins can tap into. These hooks allow you to modify how webpack understands and processes JavaScript code.
+
+## Overview
+
+Parser hooks are accessed through the `NormalModuleFactory` hooks:
+
+```javascript
+compiler.hooks.normalModuleFactory.tap('MyPlugin', (factory) => {
+  factory.hooks.parser
+    .for('javascript/auto')
+    .tap('MyPlugin', (parser) => {
+      parser.hooks.program.tap('MyPlugin', (ast, comments) => {
+        // Analyze or modify the AST
+      });
+    });
+});
+```
+
+## Module Types
+
+Parser hooks are available for these JavaScript module types:
+- `javascript/auto` - Default JavaScript modules (auto-detect ESM/CommonJS)
+- `javascript/dynamic` - CommonJS modules  
+- `javascript/esm` - ECMAScript modules
+
+## Statement Hooks
+
+### program
+
+<ParamField path="program" type="SyncBailHook<[Program, Comment[]], boolean | void>">
+  Called when the parser starts analyzing the AST. This is the entry point for AST analysis.
+</ParamField>
+
+**Parameters:**
+- `ast` (Program) - The ESTree AST program node
+- `comments` (Comment[]) - All comments in the source
+
+**Example:**
+```javascript
+parser.hooks.program.tap('MyPlugin', (ast, comments) => {
+  console.log('Parsing module with', ast.body.length, 'statements');
+});
+```
+
+---
+
+### finish
+
+<ParamField path="finish" type="SyncBailHook<[Program, Comment[]], boolean | void>">
+  Called after the parser finishes analyzing the AST.
+</ParamField>
+
+**Parameters:**
+- `ast` (Program) - The ESTree AST program node
+- `comments` (Comment[]) - All comments in the source
+
+---
+
+### preStatement
+
+<ParamField path="preStatement" type="SyncBailHook<[Statement], boolean | void>">
+  Called before processing each statement. Return `true` to skip processing the statement.
+</ParamField>
+
+**Parameters:**
+- `statement` (Statement) - The statement node
+
+---
+
+### blockPreStatement
+
+<ParamField path="blockPreStatement" type="SyncBailHook<[Statement], boolean | void>">
+  Called before processing statements inside blocks.
+</ParamField>
+
+**Parameters:**
+- `statement` (Statement) - The statement node
+
+---
+
+### statement
+
+<ParamField path="statement" type="SyncBailHook<[Statement], boolean | void>">
+  Called when processing each statement. Return `true` to skip further processing.
+</ParamField>
+
+**Parameters:**
+- `statement` (Statement) - The statement node
+
+---
+
+### statementIf
+
+<ParamField path="statementIf" type="SyncBailHook<[IfStatement], boolean | void>">
+  Called when processing an if statement. Useful for detecting conditional code.
+</ParamField>
+
+**Parameters:**
+- `statement` (IfStatement) - The if statement node
+
+## Import/Export Hooks
+
+### import
+
+<ParamField path="import" type="SyncBailHook<[ImportDeclaration, ImportSource], boolean | void>">
+  Called when an ES6 import declaration is encountered.
+</ParamField>
+
+**Parameters:**
+- `statement` (ImportDeclaration) - The import declaration
+- `source` (ImportSource) - The import source (module specifier)
+
+**Example:**
+```javascript
+parser.hooks.import.tap('MyPlugin', (statement, source) => {
+  console.log('Import from:', source);
+});
+```
+
+---
+
+### importSpecifier
+
+<ParamField path="importSpecifier" type="SyncBailHook<[ImportDeclaration, ImportSource, string | null, string], boolean | void>">
+  Called for each import specifier in an import declaration.
+</ParamField>
+
+**Parameters:**
+- `statement` (ImportDeclaration) - The import declaration
+- `source` (ImportSource) - The import source
+- `exportName` (string | null) - The exported name being imported
+- `identifierName` (string) - The local identifier name
+
+---
+
+### export
+
+<ParamField path="export" type="SyncBailHook<[ExportDeclaration], boolean | void>">
+  Called when an export declaration is encountered.
+</ParamField>
+
+**Parameters:**
+- `statement` (ExportDeclaration) - The export declaration
+
+---
+
+### exportImport
+
+<ParamField path="exportImport" type="SyncBailHook<[ExportNamedDeclaration | ExportAllDeclaration, ImportSource], boolean | void>">
+  Called when re-exporting from another module.
+</ParamField>
+
+**Parameters:**
+- `statement` (ExportNamedDeclaration | ExportAllDeclaration) - The export statement
+- `source` (ImportSource) - The source being re-exported
+
+---
+
+### exportDeclaration
+
+<ParamField path="exportDeclaration" type="SyncBailHook<[ExportDeclaration, Declaration], boolean | void>">
+  Called when exporting a declaration (function, class, variable).
+</ParamField>
+
+**Parameters:**
+- `statement` (ExportDeclaration) - The export statement
+- `declaration` (Declaration) - The declaration being exported
+
+---
+
+### exportExpression
+
+<ParamField path="exportExpression" type="SyncBailHook<[ExportDefaultDeclaration, Expression], boolean | void>">
+  Called when exporting a default expression.
+</ParamField>
+
+**Parameters:**
+- `statement` (ExportDefaultDeclaration) - The export default statement
+- `expression` (Expression) - The expression being exported
+
+---
+
+### exportSpecifier
+
+<ParamField path="exportSpecifier" type="SyncBailHook<[ExportDeclaration, string, string, number | undefined], boolean | void>">
+  Called for each export specifier.
+</ParamField>
+
+**Parameters:**
+- `statement` (ExportDeclaration) - The export statement
+- `identifierName` (string) - The local identifier
+- `exportName` (string) - The exported name
+- `index` (number | undefined) - The specifier index
+
+## Variable Declaration Hooks
+
+### preDeclarator
+
+<ParamField path="preDeclarator" type="SyncBailHook<[VariableDeclarator, Statement], boolean | void>">
+  Called before processing a variable declarator.
+</ParamField>
+
+**Parameters:**
+- `declarator` (VariableDeclarator) - The variable declarator
+- `statement` (Statement) - The containing statement
+
+---
+
+### declarator
+
+<ParamField path="declarator" type="SyncBailHook<[VariableDeclarator, Statement], boolean | void>">
+  Called when processing a variable declarator.
+</ParamField>
+
+**Parameters:**
+- `declarator` (VariableDeclarator) - The variable declarator
+- `statement` (Statement) - The containing statement
+
+---
+
+### varDeclaration (HookMap)
+
+<ParamField path="varDeclaration" type="HookMap<SyncBailHook<[Identifier], boolean | void>>">
+  Called for each variable declaration (any kind). Access via `.for(varName)`.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.varDeclaration.for('myVar').tap('MyPlugin', (declaration) => {
+  console.log('Variable myVar declared');
+});
+```
+
+---
+
+### varDeclarationLet (HookMap)
+
+<ParamField path="varDeclarationLet" type="HookMap<SyncBailHook<[Identifier], boolean | void>>">
+  Called for `let` declarations.
+</ParamField>
+
+---
+
+### varDeclarationConst (HookMap)
+
+<ParamField path="varDeclarationConst" type="HookMap<SyncBailHook<[Identifier], boolean | void>>">
+  Called for `const` declarations.
+</ParamField>
+
+---
+
+### varDeclarationVar (HookMap)
+
+<ParamField path="varDeclarationVar" type="HookMap<SyncBailHook<[Identifier], boolean | void>>">
+  Called for `var` declarations.
+</ParamField>
+
+## Expression Hooks
+
+### expression (HookMap)
+
+<ParamField path="expression" type="HookMap<SyncBailHook<[Expression], boolean | void>>">
+  Called when an expression matching a specific pattern is encountered. Access via `.for(expressionName)`.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.expression.for('process.env').tap('MyPlugin', (expression) => {
+  // Handle process.env access
+  return true; // Signal that this expression was handled
+});
+```
+
+---
+
+### expressionMemberChain (HookMap)
+
+<ParamField path="expressionMemberChain" type="HookMap<SyncBailHook<[MemberExpression, Members, MembersOptionals, MemberRanges], boolean | void>>">
+  Called for member expression chains (e.g., `object.property.nested`).
+</ParamField>
+
+**Parameters:**
+- `expression` (MemberExpression) - The member expression
+- `members` (string[]) - Array of member names
+- `membersOptionals` (boolean[]) - Whether each member is optional
+- `memberRanges` (Range[]) - Source ranges for each member
+
+---
+
+### expressionConditionalOperator
+
+<ParamField path="expressionConditionalOperator" type="SyncBailHook<[ConditionalExpression], boolean | void>">
+  Called when a conditional (ternary) expression is encountered.
+</ParamField>
+
+**Parameters:**
+- `expression` (ConditionalExpression) - The conditional expression
+
+---
+
+### expressionLogicalOperator
+
+<ParamField path="expressionLogicalOperator" type="SyncBailHook<[LogicalExpression], boolean | void>">
+  Called when a logical operator (`&&`, `||`, `??`) is encountered.
+</ParamField>
+
+**Parameters:**
+- `expression` (LogicalExpression) - The logical expression
+
+---
+
+### binaryExpression
+
+<ParamField path="binaryExpression" type="SyncBailHook<[BinaryExpression], boolean | void>">
+  Called when a binary expression is encountered.
+</ParamField>
+
+**Parameters:**
+- `expression` (BinaryExpression) - The binary expression
+
+## Call Expression Hooks
+
+### call (HookMap)
+
+<ParamField path="call" type="HookMap<SyncBailHook<[CallExpression], boolean | void>>">
+  Called when a function call matching a pattern is encountered. Access via `.for(callName)`.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.call.for('require').tap('MyPlugin', (expression) => {
+  console.log('require() call detected');
+  return true;
+});
+```
+
+---
+
+### callMemberChain (HookMap)
+
+<ParamField path="callMemberChain" type="HookMap<SyncBailHook<[CallExpression, Members, MembersOptionals, MemberRanges], boolean | void>>">
+  Called for method calls on member chains (e.g., `object.method()`).
+</ParamField>
+
+**Parameters:**
+- `expression` (CallExpression) - The call expression
+- `members` (string[]) - Array of member names
+- `membersOptionals` (boolean[]) - Whether each member is optional
+- `memberRanges` (Range[]) - Source ranges for each member
+
+---
+
+### new (HookMap)
+
+<ParamField path="new" type="HookMap<SyncBailHook<[NewExpression], boolean | void>>">
+  Called when a `new` expression matching a pattern is encountered.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.new.for('Worker').tap('MyPlugin', (expression) => {
+  console.log('new Worker() detected');
+});
+```
+
+---
+
+### importCall
+
+<ParamField path="importCall" type="SyncBailHook<[ImportExpression], boolean | void>">
+  Called when a dynamic `import()` expression is encountered.
+</ParamField>
+
+**Parameters:**
+- `expression` (ImportExpression) - The import expression
+
+**Example:**
+```javascript
+parser.hooks.importCall.tap('MyPlugin', (expression) => {
+  console.log('Dynamic import:', expression.source.value);
+});
+```
+
+## Evaluation Hooks
+
+### evaluate (HookMap)
+
+<ParamField path="evaluate" type="HookMap<SyncBailHook<[Expression], BasicEvaluatedExpression | void>>">
+  Called to evaluate expressions. Return a `BasicEvaluatedExpression` to provide the evaluated result.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.evaluate.for('BinaryExpression').tap('MyPlugin', (expression) => {
+  if (expression.operator === '+') {
+    // Return evaluated result
+  }
+});
+```
+
+---
+
+### evaluateTypeof (HookMap)
+
+<ParamField path="evaluateTypeof" type="HookMap<SyncBailHook<[UnaryExpression], BasicEvaluatedExpression | void>>">
+  Called to evaluate `typeof` expressions.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.evaluateTypeof.for('myGlobal').tap('MyPlugin', (expr) => {
+  const result = new BasicEvaluatedExpression();
+  result.setString('object');
+  result.setRange(expr.range);
+  return result;
+});
+```
+
+---
+
+### evaluateIdentifier (HookMap)
+
+<ParamField path="evaluateIdentifier" type="HookMap<SyncBailHook<[Identifier], BasicEvaluatedExpression | void>>">
+  Called to evaluate identifier expressions.
+</ParamField>
+
+---
+
+### evaluateDefinedIdentifier (HookMap)
+
+<ParamField path="evaluateDefinedIdentifier" type="HookMap<SyncBailHook<[Identifier], BasicEvaluatedExpression | void>>">
+  Called to evaluate identifiers that are defined.
+</ParamField>
+
+---
+
+### evaluateCallExpression (HookMap)
+
+<ParamField path="evaluateCallExpression" type="HookMap<SyncBailHook<[CallExpression], BasicEvaluatedExpression | void>>">
+  Called to evaluate call expressions.
+</ParamField>
+
+---
+
+### evaluateNewExpression (HookMap)
+
+<ParamField path="evaluateNewExpression" type="HookMap<SyncBailHook<[NewExpression], BasicEvaluatedExpression | void>>">
+  Called to evaluate `new` expressions.
+</ParamField>
+
+## Assignment Hooks
+
+### assign (HookMap)
+
+<ParamField path="assign" type="HookMap<SyncBailHook<[AssignmentExpression], boolean | void>>">
+  Called when an assignment to a specific variable is encountered.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.assign.for('myGlobal').tap('MyPlugin', (expression) => {
+  console.log('Assignment to myGlobal');
+});
+```
+
+---
+
+### assignMemberChain (HookMap)
+
+<ParamField path="assignMemberChain" type="HookMap<SyncBailHook<[AssignmentExpression, Members], boolean | void>>">
+  Called when assigning to a member chain (e.g., `object.property = value`).
+</ParamField>
+
+**Parameters:**
+- `expression` (AssignmentExpression) - The assignment expression
+- `members` (string[]) - Array of member names
+
+## Rename Hooks
+
+### canRename (HookMap)
+
+<ParamField path="canRename" type="HookMap<SyncBailHook<[Expression], boolean | void>>">
+  Called to determine if an identifier can be renamed. Return `true` to allow renaming.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.canRename.for('myVar').tap('MyPlugin', () => {
+  return false; // Prevent renaming
+});
+```
+
+---
+
+### rename (HookMap)
+
+<ParamField path="rename" type="HookMap<SyncBailHook<[Expression], boolean | void>>">
+  Called to rename an identifier.
+</ParamField>
+
+## Typeof Hooks
+
+### typeof (HookMap)
+
+<ParamField path="typeof" type="HookMap<SyncBailHook<[Expression], boolean | void>>">
+  Called when `typeof` is used on a specific identifier.
+</ParamField>
+
+**Example:**
+```javascript
+parser.hooks.typeof.for('process').tap('MyPlugin', (expression) => {
+  // Handle typeof process
+  return true;
+});
+```
+
+## Label Hooks
+
+### label (HookMap)
+
+<ParamField path="label" type="HookMap<SyncBailHook<[LabeledStatement], boolean | void>>">
+  Called when a labeled statement is encountered.
+</ParamField>
+
+**Parameters:**
+- `statement` (LabeledStatement) - The labeled statement
+
+## Other Hooks
+
+### isPure (HookMap)
+
+<ParamField path="isPure" type="HookMap<SyncBailHook<[Expression, number], boolean | void>>">
+  Called to determine if an expression is pure (has no side effects).
+</ParamField>
+
+**Parameters:**
+- `expression` (Expression) - The expression to check
+- `commentsStartPosition` (number) - Position where comments start
+
+---
+
+### topLevelAwait
+
+<ParamField path="topLevelAwait" type="SyncBailHook<[Expression], boolean | void>">
+  Called when top-level await is encountered.
+</ParamField>
+
+**Parameters:**
+- `expression` (Expression) - The await expression
+
+## Usage Example: DefinePlugin Pattern
+
+Here's how the DefinePlugin uses parser hooks to replace identifiers:
+
+```javascript
+compiler.hooks.compilation.tap('DefinePlugin', (compilation, { normalModuleFactory }) => {
+  const handler = (parser) => {
+    // Replace process.env.NODE_ENV
+    parser.hooks.expression
+      .for('process.env.NODE_ENV')
+      .tap('DefinePlugin', (expr) => {
+        const dep = new ConstDependency('"production"', expr.range);
+        dep.loc = expr.loc;
+        parser.state.module.addPresentationalDependency(dep);
+        return true;
+      });
+
+    // Evaluate typeof process
+    parser.hooks.evaluateTypeof
+      .for('process')
+      .tap('DefinePlugin', (expr) => {
+        return new BasicEvaluatedExpression()
+          .setString('object')
+          .setRange(expr.range);
+      });
+  };
+
+  normalModuleFactory.hooks.parser
+    .for('javascript/auto')
+    .tap('DefinePlugin', handler);
+});
+```
+
+## HookMap Usage
+
+Many parser hooks use `HookMap`, which allows you to target specific identifiers or patterns:
+
+```javascript
+// Target specific identifier
+parser.hooks.expression.for('myGlobal').tap('MyPlugin', (expr) => {
+  // Handle myGlobal
+});
+
+// Target member expression
+parser.hooks.expression.for('process.env').tap('MyPlugin', (expr) => {
+  // Handle process.env
+});
+
+// Target function calls
+parser.hooks.call.for('require').tap('MyPlugin', (expr) => {
+  // Handle require() calls
+});
+```

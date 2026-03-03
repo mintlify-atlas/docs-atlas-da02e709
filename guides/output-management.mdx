@@ -1,0 +1,301 @@
+---
+title: Output Management
+description: Manage multiple entry points, clean output directories, and generate HTML files
+---
+
+Learn how to manage webpack output with multiple entry points, dynamic filenames, and automated HTML generation.
+
+## Multiple Entry Points
+
+As your app grows, you'll need multiple bundles. Configure multiple entry points:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  entry: {
+    app: './src/app.js',
+    admin: './src/admin.js'
+  },
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+This creates two bundles:
+- `dist/app.bundle.js`
+- `dist/admin.bundle.js`
+
+<Note>
+  The `[name]` placeholder is replaced with the entry point name.
+</Note>
+
+## HtmlWebpackPlugin
+
+Manually managing HTML files becomes difficult with multiple bundles. Use HtmlWebpackPlugin to generate them automatically.
+
+<Steps>
+  <Step title="Install the plugin">
+    ```bash
+    npm install --save-dev html-webpack-plugin
+    ```
+  </Step>
+
+  <Step title="Configure the plugin">
+    ```javascript webpack.config.js
+    const HtmlWebpackPlugin = require('html-webpack-plugin');
+    const path = require('path');
+    
+    module.exports = {
+      entry: {
+        app: './src/app.js',
+        admin: './src/admin.js'
+      },
+      output: {
+        filename: '[name].bundle.js',
+        path: path.resolve(__dirname, 'dist')
+      },
+      plugins: [
+        new HtmlWebpackPlugin({
+          title: 'Output Management'
+        })
+      ]
+    };
+    ```
+  </Step>
+
+  <Step title="Build and verify">
+    ```bash
+    npm run build
+    ```
+    
+    The plugin generates `dist/index.html` with script tags for all bundles.
+  </Step>
+</Steps>
+
+## Multiple HTML Pages
+
+Generate multiple HTML files for different pages:
+
+```javascript webpack.config.js
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+module.exports = {
+  entry: {
+    pageA: './src/pageA.js',
+    pageB: './src/pageB.js'
+  },
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      filename: 'pageA.html',
+      chunks: ['pageA'],
+      template: './src/pageA.html'
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'pageB.html',
+      chunks: ['pageB'],
+      template: './src/pageB.html'
+    })
+  ]
+};
+```
+
+<Tip>
+  Use the `chunks` option to specify which bundles to include in each HTML file.
+</Tip>
+
+## Cleaning the Output Directory
+
+Webpack can clean the output directory before each build:
+
+<CodeGroup>
+```javascript Built-in Clean
+module.exports = {
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist'),
+    clean: true // Clean dist/ before each build
+  }
+};
+```
+
+```javascript Selective Cleaning
+module.exports = {
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist'),
+    clean: {
+      keep: /\.git/ // Keep .git directory
+    }
+  }
+};
+```
+</CodeGroup>
+
+## Output Filename Patterns
+
+Webpack provides several placeholders for output filenames:
+
+<CodeGroup>
+```javascript Entry Name
+module.exports = {
+  output: {
+    filename: '[name].bundle.js'
+  }
+};
+// Output: app.bundle.js, admin.bundle.js
+```
+
+```javascript Content Hash
+module.exports = {
+  output: {
+    filename: '[name].[contenthash].js'
+  }
+};
+// Output: app.8f4b3c2a.js, admin.7a2e5d1b.js
+```
+
+```javascript Chunk ID
+module.exports = {
+  output: {
+    filename: '[id].bundle.js'
+  }
+};
+// Output: 0.bundle.js, 1.bundle.js
+```
+
+```javascript Combined
+module.exports = {
+  output: {
+    filename: '[name].[contenthash:8].js',
+    chunkFilename: '[name].[contenthash:8].chunk.js'
+  }
+};
+```
+</CodeGroup>
+
+## Public Path
+
+Specify the base path for all assets:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/assets/'
+  }
+};
+```
+
+Script tags will use:
+```html
+<script src="/assets/app.bundle.js"></script>
+```
+
+<Note>
+  Set `publicPath` to your CDN URL in production for hosting assets separately.
+</Note>
+
+## Chunk Filenames
+
+Configure filenames for dynamically loaded chunks:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    filename: '[name].bundle.js',
+    chunkFilename: '[name].[contenthash].chunk.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+## Real-World Example
+
+Here's a complete configuration for a multi-page application:
+
+```javascript webpack.config.js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+module.exports = {
+  mode: 'production',
+  entry: {
+    pageA: './src/pageA.js',
+    pageB: './src/pageB.js'
+  },
+  output: {
+    filename: '[name].[contenthash:8].js',
+    chunkFilename: '[name].[contenthash:8].chunk.js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/',
+    clean: true
+  },
+  optimization: {
+    splitChunks: {
+      cacheGroups: {
+        commons: {
+          name: 'commons',
+          chunks: 'initial',
+          minChunks: 2,
+          minSize: 0
+        }
+      }
+    },
+    chunkIds: 'named'
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      filename: 'pageA.html',
+      chunks: ['commons', 'pageA'],
+      template: './src/pageA.html'
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'pageB.html',
+      chunks: ['commons', 'pageB'],
+      template: './src/pageB.html'
+    })
+  ]
+};
+```
+
+<Tip>
+  The `splitChunks` configuration automatically extracts common code into a shared bundle.
+</Tip>
+
+## Asset Module Filenames
+
+Customize output paths for different asset types:
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    assetModuleFilename: 'assets/[hash][ext]'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.(png|jpg)$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'images/[hash][ext]'
+        }
+      },
+      {
+        test: /\.(woff|woff2)$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'fonts/[hash][ext]'
+        }
+      }
+    ]
+  }
+};
+```

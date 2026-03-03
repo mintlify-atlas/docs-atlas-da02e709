@@ -1,0 +1,414 @@
+---
+title: Production
+description: Optimize your webpack build for production with minification, tree shaking, and performance features
+---
+
+Learn how to configure webpack for production deployments with optimizations for performance and bundle size.
+
+## Production Mode
+
+Production mode enables automatic optimizations:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production'
+};
+```
+
+Production mode automatically:
+- Minifies code with TerserPlugin
+- Enables tree shaking
+- Sets `process.env.NODE_ENV` to `'production'`
+- Optimizes chunk splitting
+- Removes development-only code
+
+## Separate Configurations
+
+Maintain separate configs for development and production:
+
+<Steps>
+  <Step title="Create base configuration">
+    ```javascript webpack.common.js
+    const path = require('path');
+    const HtmlWebpackPlugin = require('html-webpack-plugin');
+    
+    module.exports = {
+      entry: './src/index.js',
+      output: {
+        filename: '[name].[contenthash].js',
+        path: path.resolve(__dirname, 'dist'),
+        clean: true
+      },
+      plugins: [
+        new HtmlWebpackPlugin({
+          template: './src/index.html'
+        })
+      ],
+      module: {
+        rules: [
+          {
+            test: /\.css$/i,
+            use: ['style-loader', 'css-loader']
+          }
+        ]
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Create development config">
+    ```javascript webpack.dev.js
+    const { merge } = require('webpack-merge');
+    const common = require('./webpack.common.js');
+    
+    module.exports = merge(common, {
+      mode: 'development',
+      devtool: 'eval-source-map',
+      devServer: {
+        static: './dist',
+        hot: true
+      }
+    });
+    ```
+  </Step>
+
+  <Step title="Create production config">
+    ```javascript webpack.prod.js
+    const { merge } = require('webpack-merge');
+    const common = require('./webpack.common.js');
+    
+    module.exports = merge(common, {
+      mode: 'production',
+      devtool: 'source-map'
+    });
+    ```
+  </Step>
+
+  <Step title="Install webpack-merge">
+    ```bash
+    npm install --save-dev webpack-merge
+    ```
+  </Step>
+
+  <Step title="Update npm scripts">
+    ```json package.json
+    {
+      "scripts": {
+        "start": "webpack serve --config webpack.dev.js",
+        "build": "webpack --config webpack.prod.js"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Source Maps for Production
+
+Choose appropriate source maps for production:
+
+<CodeGroup>
+```javascript source-map (Recommended)
+module.exports = {
+  mode: 'production',
+  devtool: 'source-map'
+};
+// Separate .map files
+// Full source maps for debugging
+```
+
+```javascript hidden-source-map
+module.exports = {
+  mode: 'production',
+  devtool: 'hidden-source-map'
+};
+// No reference in bundle
+// Upload to error tracking service
+```
+
+```javascript nosources-source-map
+module.exports = {
+  mode: 'production',
+  devtool: 'nosources-source-map'
+};
+// Maps stack traces without exposing source
+```
+
+```javascript false
+module.exports = {
+  mode: 'production',
+  devtool: false
+};
+// No source maps (smallest bundle)
+```
+</CodeGroup>
+
+<Note>
+  `source-map` is recommended for production. Deploy `.map` files to a secure location or error tracking service.
+</Note>
+
+## Minification
+
+Webpack uses TerserPlugin by default in production mode:
+
+```javascript webpack.config.js
+const TerserPlugin = require('terser-webpack-plugin');
+
+module.exports = {
+  mode: 'production',
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          compress: {
+            drop_console: true,
+            drop_debugger: true
+          }
+        },
+        extractComments: false
+      })
+    ]
+  }
+};
+```
+
+<Tip>
+  Use `drop_console: true` to remove all `console.log` statements from production bundles.
+</Tip>
+
+## CSS Optimization
+
+Extract CSS into separate files in production:
+
+<Steps>
+  <Step title="Install MiniCssExtractPlugin">
+    ```bash
+    npm install --save-dev mini-css-extract-plugin css-minimizer-webpack-plugin
+    ```
+  </Step>
+
+  <Step title="Configure extraction">
+    ```javascript webpack.prod.js
+    const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+    const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+    
+    module.exports = {
+      mode: 'production',
+      module: {
+        rules: [
+          {
+            test: /\.css$/i,
+            use: [MiniCssExtractPlugin.loader, 'css-loader']
+          }
+        ]
+      },
+      plugins: [
+        new MiniCssExtractPlugin({
+          filename: '[name].[contenthash].css'
+        })
+      ],
+      optimization: {
+        minimizer: [
+          `...`, // Extend existing minimizers
+          new CssMinimizerPlugin()
+        ]
+      }
+    };
+    ```
+  </Step>
+</Steps>
+
+## Environment Variables
+
+Define environment-specific variables:
+
+```javascript webpack.prod.js
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'production',
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env.API_URL': JSON.stringify('https://api.production.com')
+    })
+  ]
+};
+```
+
+Use in your code:
+
+```javascript src/config.js
+const apiUrl = process.env.API_URL;
+
+if (process.env.NODE_ENV === 'production') {
+  console.log('Running in production');
+}
+```
+
+## Optimization Options
+
+<CodeGroup>
+```javascript Split Chunks
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        },
+        common: {
+          minChunks: 2,
+          priority: 5,
+          reuseExistingChunk: true
+        }
+      }
+    }
+  }
+};
+```
+
+```javascript Runtime Chunk
+module.exports = {
+  optimization: {
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all'
+    }
+  }
+};
+```
+
+```javascript Module IDs
+module.exports = {
+  optimization: {
+    moduleIds: 'deterministic',
+    chunkIds: 'deterministic'
+  }
+};
+```
+</CodeGroup>
+
+## Performance Budgets
+
+Set performance budgets to prevent large bundles:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  performance: {
+    maxEntrypointSize: 250000,
+    maxAssetSize: 250000,
+    hints: 'error',
+    assetFilter: function(assetFilename) {
+      return assetFilename.endsWith('.js');
+    }
+  }
+};
+```
+
+<Note>
+  Webpack will emit errors if bundle sizes exceed these limits.
+</Note>
+
+## Complete Production Configuration
+
+Here's a production-ready webpack configuration:
+
+```javascript webpack.prod.js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'production',
+  devtool: 'source-map',
+  
+  entry: './src/index.js',
+  
+  output: {
+    filename: '[name].[contenthash:8].js',
+    chunkFilename: '[name].[contenthash:8].chunk.js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/',
+    clean: true
+  },
+  
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          compress: {
+            drop_console: true
+          }
+        }
+      }),
+      new CssMinimizerPlugin()
+    ],
+    moduleIds: 'deterministic',
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        }
+      }
+    }
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: [MiniCssExtractPlugin.loader, 'css-loader']
+      },
+      {
+        test: /\.(png|jpg|svg)$/i,
+        type: 'asset',
+        parser: {
+          dataUrlCondition: {
+            maxSize: 8 * 1024
+          }
+        }
+      }
+    ]
+  },
+  
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/index.html',
+      minify: {
+        removeComments: true,
+        collapseWhitespace: true,
+        removeRedundantAttributes: true
+      }
+    }),
+    new MiniCssExtractPlugin({
+      filename: '[name].[contenthash:8].css'
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('production')
+    })
+  ],
+  
+  performance: {
+    maxEntrypointSize: 250000,
+    maxAssetSize: 250000,
+    hints: 'warning'
+  }
+};
+```
+
+<Tip>
+  Use `contenthash` in filenames for long-term caching. The hash changes only when file content changes.
+</Tip>

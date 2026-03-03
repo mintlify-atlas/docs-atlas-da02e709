@@ -1,0 +1,616 @@
+---
+title: Module
+description: Configure how webpack handles different module types, loaders, and parsing options
+---
+
+The `module` configuration determines how different types of modules within a project are treated. It defines rules for loading files, parsing options, and generator settings.
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: 'babel-loader'
+      }
+    ]
+  }
+};
+```
+
+## Rules
+
+<ParamField path="module.rules" type="array">
+  An array of rules applied for modules. Each rule can match based on file type, location, and other conditions.
+  
+  ```javascript
+  module: {
+    rules: [
+      // Rule objects go here
+    ]
+  }
+  ```
+</ParamField>
+
+### Rule Conditions
+
+<ParamField path="rule.test" type="RegExp | string | function | array">
+  Match the resource path. Commonly used to match file extensions.
+  
+  ```javascript
+  {
+    test: /\.js$/,
+    // or multiple extensions
+    test: /\.(js|jsx|ts|tsx)$/,
+    use: 'babel-loader'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.include" type="string | RegExp | function | array">
+  Match the resource path. Only apply the rule to files that match.
+  
+  ```javascript
+  {
+    test: /\.js$/,
+    include: path.resolve(__dirname, 'src'),
+    use: 'babel-loader'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.exclude" type="string | RegExp | function | array">
+  Exclude files from being processed by this rule.
+  
+  ```javascript
+  {
+    test: /\.js$/,
+    exclude: /node_modules/,
+    use: 'babel-loader'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.resource" type="object">
+  Match the resource path with conditions.
+  
+  ```javascript
+  {
+    resource: {
+      test: /\.js$/,
+      include: /src/,
+      exclude: /node_modules/
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.resourceQuery" type="string | RegExp | function">
+  Match the resource query string.
+  
+  ```javascript
+  {
+    resourceQuery: /inline/,
+    type: 'asset/inline'
+  }
+  // Matches: import './file.png?inline'
+  ```
+</ParamField>
+
+<ParamField path="rule.resourceFragment" type="string | RegExp | function">
+  Match the resource fragment (part after #).
+</ParamField>
+
+<ParamField path="rule.scheme" type="string | RegExp | function">
+  Match the resource scheme.
+  
+  ```javascript
+  {
+    scheme: 'data',
+    type: 'asset/inline'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.mimetype" type="string | RegExp | function">
+  Match the resource mimetype when loaded from a Data URI.
+</ParamField>
+
+### Issuer and Dependency Conditions
+
+<ParamField path="rule.issuer" type="string | RegExp | function | object">
+  Match the issuer of the module (the module that imported this module).
+  
+  ```javascript
+  {
+    test: /\.css$/,
+    issuer: /\.js$/,  // Only when imported from JS
+    use: 'css-loader'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.issuerLayer" type="string | RegExp | function">
+  Match the layer of the issuer.
+</ParamField>
+
+<ParamField path="rule.dependency" type="string | RegExp | function">
+  Match the dependency type.
+  
+  ```javascript
+  {
+    dependency: 'url',
+    type: 'asset/resource'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.with" type="object">
+  Match on import attributes (formerly assertions).
+  
+  ```javascript
+  {
+    with: { type: 'json' },
+    type: 'json'
+  }
+  // Matches: import data from './data.json' with { type: 'json' }
+  ```
+</ParamField>
+
+<ParamField path="rule.descriptionData" type="object">
+  Match values of properties in the description file (usually package.json).
+  
+  ```javascript
+  {
+    descriptionData: {
+      type: 'module'
+    },
+    resolve: {
+      fullySpecified: true
+    }
+  }
+  ```
+</ParamField>
+
+### Rule Effects
+
+<ParamField path="rule.use" type="string | array | object | function">
+  Loaders to apply to the module.
+  
+  ```javascript
+  // String
+  { test: /\.css$/, use: 'css-loader' }
+  
+  // Array
+  { 
+    test: /\.css$/, 
+    use: ['style-loader', 'css-loader'] 
+  }
+  
+  // Object
+  { 
+    test: /\.css$/, 
+    use: {
+      loader: 'css-loader',
+      options: { modules: true }
+    }
+  }
+  
+  // Function
+  {
+    test: /\.css$/,
+    use: (info) => ([
+      {
+        loader: 'css-loader',
+        options: { modules: info.resource.includes('.module.') }
+      }
+    ])
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.loader" type="string">
+  Shortcut for `use: [{ loader }]`.
+  
+  ```javascript
+  {
+    test: /\.js$/,
+    loader: 'babel-loader'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.options" type="object">
+  Shortcut for `use: [{ options }]`. Must be used with `loader`.
+  
+  ```javascript
+  {
+    test: /\.js$/,
+    loader: 'babel-loader',
+    options: {
+      presets: ['@babel/preset-env']
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.type" type="string">
+  Module type. Built-in types:
+  - `'javascript/auto'` - Default JavaScript
+  - `'javascript/esm'` - ES modules
+  - `'javascript/dynamic'` - CommonJS/AMD
+  - `'json'` - JSON data
+  - `'webassembly/sync'` - Synchronous WebAssembly
+  - `'webassembly/async'` - Asynchronous WebAssembly
+  - `'asset'` - Asset modules (auto)
+  - `'asset/resource'` - Emit separate file
+  - `'asset/inline'` - Data URI
+  - `'asset/source'` - Source code
+  - `'css'` - CSS files
+  - `'css/auto'` - Auto CSS modules
+  - `'css/module'` - CSS modules
+  - `'css/global'` - Global CSS
+  
+  ```javascript
+  {
+    test: /\.png$/,
+    type: 'asset/resource'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.parser" type="object">
+  Parser options for the module.
+  
+  ```javascript
+  {
+    test: /\.json$/,
+    type: 'json',
+    parser: {
+      parse: JSON.parse
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.generator" type="object">
+  Generator options for the module.
+  
+  ```javascript
+  {
+    test: /\.png$/,
+    type: 'asset/resource',
+    generator: {
+      filename: 'images/[hash][ext]'
+    }
+  }
+  ```
+</ParamField>
+
+### Nested Rules
+
+<ParamField path="rule.oneOf" type="array">
+  Only use the first matching rule in this array.
+  
+  ```javascript
+  {
+    test: /\.css$/,
+    oneOf: [
+      {
+        resourceQuery: /module/,
+        use: 'css-loader?modules'
+      },
+      {
+        use: 'css-loader'
+      }
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.rules" type="array">
+  Nested rules that are evaluated when the rule matches.
+  
+  ```javascript
+  {
+    test: /\.css$/,
+    rules: [
+      { /* nested rule */ }
+    ]
+  }
+  ```
+</ParamField>
+
+### Other Rule Options
+
+<ParamField path="rule.enforce" type="'pre' | 'post'">
+  Specify the execution order for this loader.
+  
+  ```javascript
+  {
+    test: /\.js$/,
+    enforce: 'pre',
+    use: 'eslint-loader'
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.sideEffects" type="boolean">
+  Flag module as with or without side effects for tree shaking.
+  
+  ```javascript
+  {
+    test: /\.css$/,
+    sideEffects: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.resolve" type="object">
+  Resolve options for modules matched by this rule.
+  
+  ```javascript
+  {
+    test: /\.css$/,
+    resolve: {
+      preferRelative: true
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="rule.layer" type="string">
+  Specify the layer in which the module should be placed.
+</ParamField>
+
+## Parser Options
+
+<ParamField path="module.parser" type="object">
+  Configure parser options by module type.
+  
+  ```javascript
+  module: {
+    parser: {
+      javascript: {
+        dynamicImportMode: 'lazy',
+        url: true
+      }
+    }
+  }
+  ```
+</ParamField>
+
+### JavaScript Parser Options
+
+<ParamField path="module.parser.javascript" type="object">
+  Parser options for JavaScript modules.
+</ParamField>
+
+```javascript
+module: {
+  parser: {
+    javascript: {
+      dynamicImportMode: 'lazy',
+      dynamicImportPrefetch: false,
+      dynamicImportPreload: false,
+      url: true,
+      exportsPresence: 'error',
+      importMeta: true,
+      requireInclude: true
+    }
+  }
+}
+```
+
+### Asset Parser Options
+
+<ParamField path="module.parser.asset" type="object">
+  Parser options for asset modules.
+  
+  ```javascript
+  module: {
+    parser: {
+      asset: {
+        dataUrlCondition: {
+          maxSize: 8192
+        }
+      }
+    }
+  }
+  ```
+</ParamField>
+
+### CSS Parser Options
+
+<ParamField path="module.parser['css/auto']" type="object">
+  Parser options for CSS modules (auto mode).
+  
+  ```javascript
+  module: {
+    parser: {
+      'css/auto': {
+        namedExports: true
+      }
+    }
+  }
+  ```
+</ParamField>
+
+## Generator Options
+
+<ParamField path="module.generator" type="object">
+  Configure generator options by module type.
+  
+  ```javascript
+  module: {
+    generator: {
+      asset: {
+        filename: 'assets/[hash][ext]'
+      },
+      'asset/resource': {
+        filename: 'resources/[hash][ext]'
+      }
+    }
+  }
+  ```
+</ParamField>
+
+### CSS Generator Options
+
+```javascript
+module: {
+  generator: {
+    'css/auto': {
+      localIdentName: '[path][name]__[local]--[hash:base64:5]',
+      exportsConvention: 'camelCase'
+    }
+  }
+}
+```
+
+## Other Module Options
+
+<ParamField path="module.noParse" type="RegExp | function | array">
+  Don't parse files matching this condition. Useful for large libraries without dependencies.
+  
+  ```javascript
+  module: {
+    noParse: /jquery|lodash/
+  }
+  ```
+</ParamField>
+
+<ParamField path="module.unsafeCache" type="boolean | function">
+  Cache the resolving of module requests.
+  
+  **Default:** `false` without cache, `true` for modules from `node_modules`
+  
+  ```javascript
+  module: {
+    unsafeCache: (module) => {
+      return !module.nameForCondition().includes('node_modules');
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="module.defaultRules" type="array">
+  Default rules applied by webpack. Can be disabled with `'...'` in the rules array.
+</ParamField>
+
+## Common Rule Patterns
+
+### JavaScript with Babel
+
+```javascript
+module: {
+  rules: [
+    {
+      test: /\.jsx?$/,
+      exclude: /node_modules/,
+      use: {
+        loader: 'babel-loader',
+        options: {
+          presets: ['@babel/preset-env', '@babel/preset-react']
+        }
+      }
+    }
+  ]
+}
+```
+
+### CSS and Style Loaders
+
+```javascript
+module: {
+  rules: [
+    {
+      test: /\.css$/,
+      use: ['style-loader', 'css-loader']
+    },
+    {
+      test: /\.scss$/,
+      use: [
+        'style-loader',
+        'css-loader',
+        'sass-loader'
+      ]
+    }
+  ]
+}
+```
+
+### Images and Assets
+
+```javascript
+module: {
+  rules: [
+    {
+      test: /\.(png|jpg|gif|svg)$/,
+      type: 'asset',
+      parser: {
+        dataUrlCondition: {
+          maxSize: 8 * 1024 // 8kb
+        }
+      },
+      generator: {
+        filename: 'images/[hash][ext]'
+      }
+    }
+  ]
+}
+```
+
+### TypeScript
+
+```javascript
+module: {
+  rules: [
+    {
+      test: /\.tsx?$/,
+      use: 'ts-loader',
+      exclude: /node_modules/
+    }
+  ]
+}
+```
+
+### Conditional Loading
+
+```javascript
+module: {
+  rules: [
+    {
+      test: /\.css$/,
+      oneOf: [
+        {
+          resourceQuery: /module/,
+          use: {
+            loader: 'css-loader',
+            options: { modules: true }
+          }
+        },
+        {
+          use: 'css-loader'
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Source Code Reference
+
+Module configuration defaults are defined in:
+- `lib/config/defaults.js:800-1202` - Module defaults
+- `lib/config/defaults.js:1016-1201` - Default rules
+
+## See Also
+
+- [Resolve Configuration](/configuration/resolve)
+- [Output Configuration](/configuration/output)
+- [Webpack Loaders](https://webpack.js.org/loaders/)
+- [Module Federation](https://webpack.js.org/concepts/module-federation/)

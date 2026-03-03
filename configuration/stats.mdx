@@ -1,0 +1,835 @@
+---
+title: Stats
+description: Configure compilation output statistics and logging in webpack
+---
+
+The `stats` configuration controls what bundle information gets displayed during compilation. You can customize the output to show exactly what you need.
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  stats: 'errors-only'
+};
+```
+
+## Presets
+
+<ParamField path="stats" type="string | boolean | object">
+  Control compilation output statistics.
+  
+  **Default:** Varies by webpack configuration
+  
+  ```javascript
+  // String preset
+  stats: 'minimal'
+  
+  // Boolean
+  stats: false  // Disable all output
+  
+  // Object for fine control
+  stats: {
+    colors: true,
+    modules: false
+  }
+  ```
+</ParamField>
+
+### Available Presets
+
+<ParamField path="'none'">
+  Output nothing.
+  
+  ```javascript
+  stats: 'none'
+  ```
+</ParamField>
+
+<ParamField path="'errors-only'">
+  Only output errors.
+  
+  ```javascript
+  stats: 'errors-only'
+  ```
+  
+  Useful for CI/CD where you only care about failures.
+</ParamField>
+
+<ParamField path="'errors-warnings'">
+  Only output errors and warnings.
+  
+  ```javascript
+  stats: 'errors-warnings'
+  ```
+  
+  Recommended for production builds.
+</ParamField>
+
+<ParamField path="'minimal'">
+  Output only when errors or new compilation happens.
+  
+  ```javascript
+  stats: 'minimal'
+  ```
+  
+  Good for watch mode development.
+</ParamField>
+
+<ParamField path="'normal'">
+  Standard output (default).
+  
+  ```javascript
+  stats: 'normal'
+  ```
+</ParamField>
+
+<ParamField path="'detailed'">
+  Output everything except chunkModules and chunkRootModules.
+  
+  ```javascript
+  stats: 'detailed'
+  ```
+</ParamField>
+
+<ParamField path="'verbose'">
+  Output everything.
+  
+  ```javascript
+  stats: 'verbose'
+  ```
+  
+  Useful for debugging builds.
+</ParamField>
+
+<ParamField path="'summary'">
+  Output webpack version, warnings count, and errors count.
+  
+  ```javascript
+  stats: 'summary'
+  ```
+</ParamField>
+
+## Stats Options
+
+For fine-grained control, use an object:
+
+```javascript
+module.exports = {
+  stats: {
+    // Options
+  }
+};
+```
+
+### Display Options
+
+<ParamField path="stats.colors" type="boolean">
+  Enable colored output.
+  
+  **Default:** Auto-detected (true if terminal supports colors)
+  
+  ```javascript
+  stats: {
+    colors: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.hash" type="boolean">
+  Display the compilation hash.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    hash: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.version" type="boolean">
+  Display webpack version.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    version: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.timings" type="boolean">
+  Display compilation timing.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    timings: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.builtAt" type="boolean">
+  Display build date and time.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    builtAt: true
+  }
+  ```
+</ParamField>
+
+### Assets
+
+<ParamField path="stats.assets" type="boolean">
+  Display asset information.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    assets: true,
+    assetsSpace: 15,  // Limit to 15 assets
+    assetsSort: 'size'  // Sort by size
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.assetsSort" type="string">
+  Sort assets by field.
+  
+  Options: `'id'`, `'name'`, `'size'`, `'chunks'`, `'errors'`, `'warnings'`, `'failed'`, `'emitted'`
+  
+  **Default:** `'id'`
+</ParamField>
+
+<ParamField path="stats.assetsSpace" type="number">
+  Limit the number of assets displayed.
+  
+  ```javascript
+  stats: {
+    assetsSpace: 10  // Show only 10 assets
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.excludeAssets" type="string | RegExp | function | array">
+  Exclude assets from stats output.
+  
+  ```javascript
+  stats: {
+    excludeAssets: [
+      /\.map$/,
+      /\.json$/
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.groupAssetsByInfo" type="boolean">
+  Group assets by asset info (e.g., immutable, development, hotModuleReplacement).
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupAssetsByPath" type="boolean">
+  Group assets by path.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupAssetsByExtension" type="boolean">
+  Group assets by extension.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupAssetsByChunk" type="boolean">
+  Group assets by chunk.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupAssetsByEmitStatus" type="boolean">
+  Group assets by emit status.
+  
+  **Default:** `true`
+</ParamField>
+
+### Modules
+
+<ParamField path="stats.modules" type="boolean">
+  Display module information.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    modules: false  // Hide module info
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.modulesSort" type="string">
+  Sort modules by field.
+  
+  Options: `'id'`, `'name'`, `'size'`, `'chunks'`, `'errors'`, `'warnings'`, `'failed'`, `'cacheable'`, `'built'`, `'prefetched'`, `'optional'`, `'identifier'`
+  
+  **Default:** `'id'`
+</ParamField>
+
+<ParamField path="stats.modulesSpace" type="number">
+  Limit the number of modules displayed.
+  
+  ```javascript
+  stats: {
+    modulesSpace: 15  // Show only 15 modules
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.excludeModules" type="string | RegExp | function | array">
+  Exclude modules from stats output.
+  
+  ```javascript
+  stats: {
+    excludeModules: [
+      /node_modules/,
+      /\.css$/
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.groupModulesByPath" type="boolean">
+  Group modules by path.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupModulesByExtension" type="boolean">
+  Group modules by extension.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupModulesByType" type="boolean">
+  Group modules by type.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupModulesByLayer" type="boolean">
+  Group modules by layer.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.groupModulesByCacheStatus" type="boolean">
+  Group modules by cache status.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.nestedModules" type="boolean">
+  Display nested modules (modules inside other modules).
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.nestedModulesSpace" type="number">
+  Limit the number of nested modules displayed.
+</ParamField>
+
+### Chunks
+
+<ParamField path="stats.chunks" type="boolean">
+  Display chunk information.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    chunks: false  // Hide chunk info
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.chunksSort" type="string">
+  Sort chunks by field.
+  
+  **Default:** `'id'`
+</ParamField>
+
+<ParamField path="stats.chunkModules" type="boolean">
+  Display modules contained in each chunk.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.chunkModulesSpace" type="number">
+  Limit the number of chunk modules displayed.
+</ParamField>
+
+<ParamField path="stats.chunkRelations" type="boolean">
+  Display chunk parent, children, and sibling relationships.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.chunkGroups" type="boolean">
+  Display chunk group information.
+  
+  **Default:** `true`
+</ParamField>
+
+### Errors and Warnings
+
+<ParamField path="stats.errors" type="boolean">
+  Display errors.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    errors: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.errorDetails" type="boolean | 'auto'">
+  Display detailed error information.
+  
+  **Default:** `'auto'`
+  
+  ```javascript
+  stats: {
+    errorDetails: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.errorStack" type="boolean">
+  Display stack trace for errors.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.warnings" type="boolean">
+  Display warnings.
+  
+  **Default:** `true`
+  
+  ```javascript
+  stats: {
+    warnings: true
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.warningsFilter" type="string | RegExp | function | array">
+  Filter warnings from stats output.
+  
+  ```javascript
+  stats: {
+    warningsFilter: [
+      /size limit/,
+      /asset size limit/
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.warningsCount" type="boolean">
+  Display count of warnings.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.errorsCount" type="boolean">
+  Display count of errors.
+  
+  **Default:** `true`
+</ParamField>
+
+### Other Options
+
+<ParamField path="stats.entrypoints" type="boolean | 'auto'">
+  Display entry point information.
+  
+  **Default:** `'auto'`
+</ParamField>
+
+<ParamField path="stats.children" type="boolean">
+  Display stats for child compilers.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.logging" type="'none' | 'error' | 'warn' | 'info' | 'log' | 'verbose'">
+  Display logging output for infrastructure level logging.
+  
+  **Default:** `'info'`
+  
+  ```javascript
+  stats: {
+    logging: 'warn'
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.loggingDebug" type="string | RegExp | function | array">
+  Enable debug mode for specific loggers.
+  
+  ```javascript
+  stats: {
+    loggingDebug: /webpack/
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.loggingTrace" type="boolean">
+  Display stack traces for logging.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.performance" type="boolean">
+  Display performance timing information.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.reasons" type="boolean">
+  Display reasons why modules are included.
+  
+  **Default:** `false`
+  
+  ```javascript
+  stats: {
+    reasons: true  // Show why each module was bundled
+  }
+  ```
+</ParamField>
+
+<ParamField path="stats.source" type="boolean">
+  Display source code of modules.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.usedExports" type="boolean">
+  Display information about used exports.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.providedExports" type="boolean">
+  Display information about provided exports.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.optimizationBailout" type="boolean">
+  Display reasons for optimization bailouts.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.depth" type="boolean">
+  Display distance from entry point for each module.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.env" type="boolean">
+  Display environment variables from `--env`.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.orphanModules" type="boolean">
+  Display modules without reasons (orphan modules).
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.runtimeModules" type="boolean">
+  Display runtime modules.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="stats.dependentModules" type="boolean">
+  Display modules that depend on this module.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.ids" type="boolean">
+  Display module and chunk ids.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="stats.all" type="boolean">
+  Enable all stats options.
+  
+  ```javascript
+  stats: {
+    all: true
+  }
+  ```
+</ParamField>
+
+## Common Configurations
+
+### Development
+
+```javascript
+module.exports = {
+  mode: 'development',
+  stats: {
+    colors: true,
+    modules: false,
+    children: false,
+    chunks: false,
+    chunkModules: false
+  }
+};
+```
+
+### Production
+
+```javascript
+module.exports = {
+  mode: 'production',
+  stats: 'errors-warnings'
+};
+```
+
+### CI/CD
+
+```javascript
+module.exports = {
+  stats: {
+    colors: false,  // No colors in CI
+    modules: false,
+    entrypoints: false,
+    warnings: true,
+    errors: true,
+    errorDetails: true
+  }
+};
+```
+
+### Debugging
+
+```javascript
+module.exports = {
+  stats: {
+    reasons: true,
+    usedExports: true,
+    providedExports: true,
+    optimizationBailout: true,
+    errorDetails: true,
+    depth: true,
+    logging: 'verbose'
+  }
+};
+```
+
+### Minimal Output
+
+```javascript
+module.exports = {
+  stats: {
+    all: false,
+    errors: true,
+    warnings: true,
+    colors: true,
+    timings: true
+  }
+};
+```
+
+### Watch Mode
+
+```javascript
+module.exports = {
+  stats: 'minimal'
+};
+```
+
+### Bundle Analysis
+
+```javascript
+module.exports = {
+  stats: {
+    modules: true,
+    reasons: true,
+    usedExports: true,
+    chunkModules: true,
+    chunkRelations: true,
+    groupModulesByPath: true
+  }
+};
+```
+
+## Programmatic Usage
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+const compiler = webpack(config);
+
+compiler.run((err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  
+  console.log(stats.toString({
+    colors: true,
+    modules: false,
+    children: false,
+    chunks: false,
+    chunkModules: false
+  }));
+});
+```
+
+## Stats JSON
+
+Generate a JSON file with stats:
+
+```bash
+webpack --json > stats.json
+```
+
+Or programmatically:
+
+```javascript
+const fs = require('fs');
+const webpack = require('webpack');
+
+webpack(config, (err, stats) => {
+  if (err) throw err;
+  
+  fs.writeFileSync(
+    'stats.json',
+    JSON.stringify(stats.toJson())
+  );
+});
+```
+
+Analyze with:
+- [webpack-bundle-analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer)
+- [webpack.github.io/analyse](https://webpack.github.io/analyse/)
+- [Statoscope](https://github.com/statoscope/statoscope)
+
+## Environment-Based Configuration
+
+```javascript
+module.exports = (env, argv) => {
+  const isDevelopment = argv.mode === 'development';
+  const isCI = process.env.CI === 'true';
+  
+  return {
+    stats: isDevelopment
+      ? 'minimal'
+      : isCI
+        ? {
+            colors: false,
+            errors: true,
+            warnings: true,
+            errorDetails: true
+          }
+        : 'errors-warnings'
+  };
+};
+```
+
+## Custom Stats Reporter
+
+```javascript
+class CustomStatsPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('CustomStatsPlugin', (stats) => {
+      const info = stats.toJson({
+        all: false,
+        errors: true,
+        warnings: true,
+        assets: true
+      });
+      
+      console.log('\n=== Build Complete ===');
+      console.log(`Time: ${info.time}ms`);
+      console.log(`Hash: ${info.hash}`);
+      console.log(`Assets: ${info.assets.length}`);
+      
+      if (info.errors.length > 0) {
+        console.log(`\nErrors: ${info.errors.length}`);
+        info.errors.forEach(err => console.error(err));
+      }
+      
+      if (info.warnings.length > 0) {
+        console.log(`\nWarnings: ${info.warnings.length}`);
+      }
+    });
+  }
+}
+
+module.exports = {
+  plugins: [new CustomStatsPlugin()]
+};
+```
+
+## Performance Tips
+
+1. **Disable unused stats in development**:
+   ```javascript
+   stats: {
+     modules: false,
+     children: false
+   }
+   ```
+
+2. **Use presets for simplicity**:
+   ```javascript
+   stats: 'minimal'
+   ```
+
+3. **Filter large outputs**:
+   ```javascript
+   stats: {
+     excludeModules: /node_modules/,
+     modulesSpace: 15
+   }
+   ```
+
+4. **CI-specific configuration**:
+   ```javascript
+   stats: {
+     colors: false,
+     modules: false,
+     entrypoints: false
+   }
+   ```
+
+## Source Code Reference
+
+Stats configuration is handled in:
+- Stats presets and options in `lib/stats/`
+- Default stats configuration
+
+## See Also
+
+- [Webpack Stats Data](https://webpack.js.org/api/stats/)
+- [Bundle Analysis Guide](https://webpack.js.org/guides/code-splitting/#bundle-analysis)
+- [webpack-bundle-analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer)

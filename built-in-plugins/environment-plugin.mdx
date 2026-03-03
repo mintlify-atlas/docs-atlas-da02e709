@@ -1,0 +1,254 @@
+---
+title: EnvironmentPlugin
+description: Shorthand for defining environment variables with DefinePlugin
+---
+
+A shorthand for using the `DefinePlugin` for `process.env` and `import.meta.env` environment variables.
+
+## Usage
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.EnvironmentPlugin(['NODE_ENV', 'DEBUG'])
+  ]
+};
+```
+
+This is equivalent to:
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+      'process.env.DEBUG': JSON.stringify(process.env.DEBUG),
+      'import.meta.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+      'import.meta.env.DEBUG': JSON.stringify(process.env.DEBUG)
+    })
+  ]
+};
+```
+
+## Constructor
+
+The plugin accepts environment variables in three different formats:
+
+### Array Format
+
+```js
+new webpack.EnvironmentPlugin(['NODE_ENV', 'DEBUG']);
+```
+
+### Object Format (with defaults)
+
+```js
+new webpack.EnvironmentPlugin({
+  NODE_ENV: 'development', // default value if NODE_ENV is not defined
+  DEBUG: false
+});
+```
+
+### Spread Format
+
+```js
+new webpack.EnvironmentPlugin('NODE_ENV', 'DEBUG');
+```
+
+## Options
+
+<ParamField path="keys" type="string[] | object" required>
+  Environment variable keys to expose. Can be:
+  
+  - **Array of strings**: Variable names to read from `process.env`
+  - **Object**: Variable names as keys with default values
+  - **Multiple strings**: Variable names as separate arguments
+
+  ```js
+  // Array - requires variables to be set
+  new webpack.EnvironmentPlugin(['API_KEY', 'API_URL']);
+
+  // Object - with default values
+  new webpack.EnvironmentPlugin({
+    NODE_ENV: 'development',
+    DEBUG: false,
+    API_URL: 'http://localhost:3000'
+  });
+
+  // Spread - requires variables to be set
+  new webpack.EnvironmentPlugin('NODE_ENV', 'DEBUG');
+  ```
+</ParamField>
+
+## Default Values
+
+When using the object format, you can specify default values for environment variables:
+
+```js
+new webpack.EnvironmentPlugin({
+  NODE_ENV: 'production',    // Use 'production' if NODE_ENV is undefined
+  DEBUG: false,              // Use false if DEBUG is undefined
+  API_KEY: undefined         // Must be provided at build time
+});
+```
+
+## Error Handling
+
+If an environment variable is not defined and no default value is provided, webpack will throw an error:
+
+```bash
+EnvironmentPlugin - NODE_ENV environment variable is undefined.
+
+You can pass an object with default values to suppress this warning.
+See https://webpack.js.org/plugins/environment-plugin for example.
+```
+
+## Examples
+
+### Basic Environment Variables
+
+```js
+// webpack.config.js
+module.exports = {
+  plugins: [
+    new webpack.EnvironmentPlugin([
+      'NODE_ENV',
+      'API_URL',
+      'API_KEY'
+    ])
+  ]
+};
+
+// In your code:
+console.log(process.env.NODE_ENV);
+console.log(process.env.API_URL);
+console.log(import.meta.env.API_KEY); // Also available on import.meta.env
+```
+
+### With Default Values
+
+```js
+module.exports = {
+  plugins: [
+    new webpack.EnvironmentPlugin({
+      NODE_ENV: 'development',
+      DEBUG: false,
+      LOG_LEVEL: 'info',
+      API_URL: 'http://localhost:3000'
+    })
+  ]
+};
+```
+
+### Mixed Required and Optional Variables
+
+```js
+module.exports = {
+  plugins: [
+    new webpack.EnvironmentPlugin({
+      // Required - will error if not set
+      API_KEY: undefined,
+      DATABASE_URL: undefined,
+      
+      // Optional - with defaults
+      NODE_ENV: 'development',
+      PORT: '3000',
+      DEBUG: false
+    })
+  ]
+};
+```
+
+### Development vs Production
+
+```js
+module.exports = {
+  plugins: [
+    new webpack.EnvironmentPlugin({
+      NODE_ENV: 'production',
+      // API URLs based on environment
+      API_URL: process.env.NODE_ENV === 'production'
+        ? 'https://api.production.com'
+        : 'http://localhost:3000'
+    })
+  ]
+};
+```
+
+### With dotenv
+
+Combine with dotenv for loading variables from `.env` files:
+
+```js
+require('dotenv').config();
+
+module.exports = {
+  plugins: [
+    new webpack.EnvironmentPlugin([
+      'NODE_ENV',
+      'DATABASE_URL',
+      'API_KEY',
+      'SECRET_KEY'
+    ])
+  ]
+};
+```
+
+### Using import.meta.env (ESM)
+
+```js
+// webpack.config.js
+module.exports = {
+  plugins: [
+    new webpack.EnvironmentPlugin(['VITE_API_URL'])
+  ]
+};
+
+// In your ESM code:
+console.log(import.meta.env.VITE_API_URL);
+```
+
+## Comparison with DefinePlugin
+
+### EnvironmentPlugin
+
+```js
+new webpack.EnvironmentPlugin(['NODE_ENV']);
+```
+
+### Equivalent DefinePlugin
+
+```js
+new webpack.DefinePlugin({
+  'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+  'import.meta.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV)
+});
+```
+
+The EnvironmentPlugin:
+- Automatically reads from `process.env`
+- Defines both `process.env.*` and `import.meta.env.*`
+- Provides better error messages for missing variables
+- Supports default values
+- Is more concise for environment variables
+
+## Notes
+
+1. **Both Syntaxes**: The plugin automatically defines variables for both `process.env.*` and `import.meta.env.*`
+
+2. **String Values**: Environment variables are automatically stringified with `JSON.stringify()`
+
+3. **Build Time**: Variables are resolved at build time, not runtime
+
+4. **Undefined Variables**: If a variable is undefined and has no default, the build will fail with a descriptive error
+
+5. **DotenvPlugin**: For more advanced `.env` file handling, consider using webpack's built-in `DotenvPlugin`:
+   ```js
+   new webpack.DotenvPlugin({
+     path: './.env'
+   });
+   ```

@@ -1,0 +1,486 @@
+---
+title: Target
+description: Configure the deployment environment target for webpack bundles
+---
+
+The `target` configuration tells webpack which environment the bundle should run in. This affects code generation, chunk loading methods, and polyfills.
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  target: 'web'
+};
+```
+
+## Target Options
+
+<ParamField path="target" type="string | string[] | false">
+  Environment to build for.
+  
+  **Default:** `'browserslist'` (if browserslist config found) or `'web'`
+  
+  ```javascript
+  // Single target
+  target: 'node'
+  
+  // Multiple targets
+  target: ['web', 'es5']
+  
+  // Disable
+  target: false
+  ```
+</ParamField>
+
+## Built-in Targets
+
+### Web Targets
+
+<ParamField path="web">
+  Compile for usage in a browser-like environment (default).
+  
+  ```javascript
+  target: 'web'
+  ```
+  
+  Features:
+  - `window` as global object
+  - `document` available
+  - JSONP chunk loading
+  - DOM-based module loading
+</ParamField>
+
+<ParamField path="webworker">
+  Compile for usage in a WebWorker.
+  
+  ```javascript
+  target: 'webworker'
+  ```
+  
+  Features:
+  - `self` as global object
+  - `importScripts` for chunk loading
+  - No DOM access
+</ParamField>
+
+### Node.js Targets
+
+<ParamField path="node">
+  Compile for usage in a Node.js environment.
+  
+  ```javascript
+  target: 'node'
+  ```
+  
+  Features:
+  - `global` as global object
+  - `require` for chunk loading
+  - Node.js built-ins available
+  - CommonJS module format
+</ParamField>
+
+<ParamField path="node[X]" type="string">
+  Compile for specific Node.js version.
+  
+  ```javascript
+  target: 'node16'
+  target: 'node18'
+  target: 'node20'
+  ```
+  
+  Uses features available in that Node.js version.
+</ParamField>
+
+<ParamField path="async-node">
+  Compile for Node.js-like environment with async chunk loading.
+  
+  ```javascript
+  target: 'async-node'
+  ```
+  
+  Uses `fs` and `vm` to load chunks asynchronously.
+</ParamField>
+
+<ParamField path="async-node[X]" type="string">
+  Async Node.js for specific version.
+  
+  ```javascript
+  target: 'async-node16'
+  ```
+</ParamField>
+
+### Electron Targets
+
+<ParamField path="electron-main">
+  Compile for Electron main process.
+  
+  ```javascript
+  target: 'electron-main'
+  ```
+  
+  Features:
+  - Node.js environment
+  - Electron main process APIs
+</ParamField>
+
+<ParamField path="electron-renderer">
+  Compile for Electron renderer process.
+  
+  ```javascript
+  target: 'electron-renderer'
+  ```
+  
+  Features:
+  - Browser-like environment
+  - Node.js integration (if enabled)
+  - Electron renderer APIs
+</ParamField>
+
+<ParamField path="electron-preload">
+  Compile for Electron preload script.
+  
+  ```javascript
+  target: 'electron-preload'
+  ```
+  
+  Features:
+  - Sandboxed Node.js environment
+  - Limited Node.js APIs
+</ParamField>
+
+### Other Targets
+
+<ParamField path="nwjs">
+  Compile for NW.js (formerly node-webkit).
+  
+  ```javascript
+  target: 'nwjs'
+  ```
+</ParamField>
+
+<ParamField path="node-webkit">
+  Alias for `nwjs`.
+</ParamField>
+
+<ParamField path="esX" type="string">
+  Compile for specific ECMAScript version.
+  
+  ```javascript
+  target: 'es5'    // ES5
+  target: 'es2015' // ES2015/ES6
+  target: 'es2020' // ES2020
+  ```
+  
+  Determines which JavaScript features can be used in output.
+</ParamField>
+
+## Browserslist
+
+<ParamField path="browserslist">
+  Use browserslist config to determine target environment.
+  
+  ```javascript
+  target: 'browserslist'
+  ```
+  
+  Reads from:
+  - `browserslist` field in `package.json`
+  - `.browserslistrc` file
+  - `browserslist` config file
+  
+  Example `package.json`:
+  ```json
+  {
+    "browserslist": [
+      "> 1%",
+      "last 2 versions",
+      "not dead"
+    ]
+  }
+  ```
+</ParamField>
+
+<ParamField path="browserslist:[environment]" type="string">
+  Use specific browserslist environment.
+  
+  ```javascript
+  target: 'browserslist:modern'
+  ```
+  
+  Example `package.json`:
+  ```json
+  {
+    "browserslist": {
+      "production": ["> 1%", "not dead"],
+      "modern": ["last 1 chrome version"]
+    }
+  }
+  ```
+</ParamField>
+
+## Multiple Targets
+
+Specify multiple targets to support multiple environments:
+
+```javascript
+module.exports = {
+  target: ['web', 'es5']
+};
+```
+
+Common combinations:
+
+```javascript
+// Modern browsers with ES2015+
+target: ['web', 'es2015']
+
+// Node.js 18 with ES2022
+target: ['node18', 'es2022']
+
+// Electron renderer with ES2020
+target: ['electron-renderer', 'es2020']
+```
+
+## Disable Target
+
+Disable default target behaviors:
+
+```javascript
+module.exports = {
+  target: false
+};
+```
+
+<Warning>
+  When `target` is `false`, webpack won't apply any default configurations. You must manually configure all necessary plugins and settings.
+</Warning>
+
+## Target Effects
+
+The `target` setting affects:
+
+### 1. Chunk Loading Method
+
+```javascript
+// web target
+output.chunkLoading: 'jsonp'
+
+// node target
+output.chunkLoading: 'require'
+
+// webworker target
+output.chunkLoading: 'import-scripts'
+```
+
+### 2. Global Object
+
+```javascript
+// web target
+output.globalObject: 'self'
+
+// node target
+output.globalObject: 'global'
+```
+
+### 3. Default Externals
+
+```javascript
+// node target
+externalsPresets: {
+  node: true // Node.js built-ins are external
+}
+
+// electron targets
+externalsPresets: {
+  electron: true,
+  electronMain: true // or electronRenderer/electronPreload
+}
+```
+
+### 4. Environment Features
+
+```javascript
+output.environment: {
+  arrowFunction: true,
+  const: true,
+  destructuring: true,
+  forOf: true,
+  // ... based on target
+}
+```
+
+### 5. Module Format
+
+```javascript
+// node target
+output.module: false
+output.chunkFormat: 'commonjs'
+
+// web target
+output.module: false
+output.chunkFormat: 'array-push'
+```
+
+## Common Configurations
+
+### Modern Web Application
+
+```javascript
+module.exports = {
+  target: ['web', 'es2015'],
+  output: {
+    environment: {
+      arrowFunction: true,
+      const: true,
+      destructuring: true,
+      forOf: true
+    }
+  }
+};
+```
+
+### Node.js Application
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  target: 'node18',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'server.js'
+  },
+  externalsPresets: {
+    node: true
+  }
+};
+```
+
+### Electron Application
+
+```javascript
+// Main process config
+module.exports = {
+  target: 'electron-main',
+  entry: './src/main.js',
+  output: {
+    filename: 'main.js'
+  }
+};
+
+// Renderer process config
+module.exports = {
+  target: 'electron-renderer',
+  entry: './src/renderer.js',
+  output: {
+    filename: 'renderer.js'
+  }
+};
+```
+
+### Legacy Browser Support
+
+```javascript
+module.exports = {
+  target: ['web', 'es5'],
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              ['@babel/preset-env', {
+                targets: { ie: 11 }
+              }]
+            ]
+          }
+        }
+      }
+    ]
+  }
+};
+```
+
+### Universal/Isomorphic Application
+
+```javascript
+// Client config
+const clientConfig = {
+  target: 'web',
+  entry: './src/client.js',
+  output: {
+    path: path.resolve(__dirname, 'dist/client'),
+    filename: 'bundle.js'
+  }
+};
+
+// Server config
+const serverConfig = {
+  target: 'node',
+  entry: './src/server.js',
+  output: {
+    path: path.resolve(__dirname, 'dist/server'),
+    filename: 'server.js'
+  },
+  externalsPresets: {
+    node: true
+  }
+};
+
+module.exports = [clientConfig, serverConfig];
+```
+
+### Progressive Web App
+
+```javascript
+module.exports = {
+  target: 'browserslist',
+  entry: {
+    main: './src/index.js',
+    sw: './src/service-worker.js'
+  },
+  output: {
+    filename: '[name].js'
+  }
+};
+
+// .browserslistrc
+/*
+last 2 Chrome versions
+last 2 Firefox versions
+last 2 Safari versions
+last 2 Edge versions
+*/
+```
+
+## Environment Detection
+
+```javascript
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
+  
+  return {
+    target: isProduction
+      ? ['browserslist:production']
+      : ['browserslist:development'],
+    // ... other config
+  };
+};
+```
+
+## Source Code Reference
+
+Target configuration and defaults are defined in:
+- `lib/config/target.js` - Target properties and detection
+- `lib/config/defaults.js:299-301` - Default target selection
+- `lib/config/defaults.js:305-313` - Target properties resolution
+
+## See Also
+
+- [Output Configuration](/configuration/output)
+- [Externals Configuration](/configuration/externals)
+- [Node Configuration](/configuration/node)
+- [Browserslist](https://github.com/browserslist/browserslist)

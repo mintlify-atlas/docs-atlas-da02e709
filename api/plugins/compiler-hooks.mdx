@@ -1,0 +1,538 @@
+---
+title: Compiler Hooks
+description: Reference for all Compiler hooks available to webpack plugins
+---
+
+The `Compiler` module is the main engine that creates a compilation instance with all the options passed through the CLI or Node API. It extends the `Tapable` class to provide hook functionality.
+
+## Overview
+
+Compiler hooks are exposed on the `compiler.hooks` object and can be tapped into by plugins during the compilation lifecycle.
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compile.tap('MyPlugin', (params) => {
+      console.log('The compiler is starting to compile...');
+    });
+  }
+}
+```
+
+## Hooks
+
+### initialize
+
+<ParamField path="initialize" type="SyncHook<[]>">
+  Called when the compiler object is initialized.
+</ParamField>
+
+**Parameters:** None
+
+**Example:**
+```javascript
+compiler.hooks.initialize.tap('MyPlugin', () => {
+  console.log('Compiler is initializing');
+});
+```
+
+---
+
+### shouldEmit
+
+<ParamField path="shouldEmit" type="SyncBailHook<[Compilation], boolean | void>">
+  Called before emitting assets. Return `false` to cancel emit.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The compilation instance
+
+**Returns:** `boolean | void` - Return `false` to prevent emit
+
+**Example:**
+```javascript
+compiler.hooks.shouldEmit.tap('MyPlugin', (compilation) => {
+  // Check for errors and prevent emit if needed
+  if (compilation.errors.length > 0) {
+    return false;
+  }
+});
+```
+
+---
+
+### done
+
+<ParamField path="done" type="AsyncSeriesHook<[Stats]>">
+  Called when the compilation has completed. This is the last hook called in the compilation process.
+</ParamField>
+
+**Parameters:**
+- `stats` (Stats) - Compilation statistics
+
+**Example:**
+```javascript
+compiler.hooks.done.tap('MyPlugin', (stats) => {
+  console.log('Compilation finished!');
+  console.log('Time:', stats.endTime - stats.startTime, 'ms');
+});
+```
+
+---
+
+### afterDone
+
+<ParamField path="afterDone" type="SyncHook<[Stats]>">
+  Called after the `done` hook completes.
+</ParamField>
+
+**Parameters:**
+- `stats` (Stats) - Compilation statistics
+
+---
+
+### additionalPass
+
+<ParamField path="additionalPass" type="AsyncSeriesHook<[]>">
+  Called when an additional compilation pass is needed.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### beforeRun
+
+<ParamField path="beforeRun" type="AsyncSeriesHook<[Compiler]>">
+  Called before the compiler starts running. This is the first hook called when running the compiler.
+</ParamField>
+
+**Parameters:**
+- `compiler` (Compiler) - The compiler instance
+
+**Example:**
+```javascript
+compiler.hooks.beforeRun.tapAsync('MyPlugin', (compiler, callback) => {
+  // Perform async operations before compilation
+  fetchRemoteConfig().then(() => {
+    callback();
+  });
+});
+```
+
+---
+
+### run
+
+<ParamField path="run" type="AsyncSeriesHook<[Compiler]>">
+  Called when the compiler starts running. Fires right before compilation begins.
+</ParamField>
+
+**Parameters:**
+- `compiler` (Compiler) - The compiler instance
+
+**Example:**
+```javascript
+compiler.hooks.run.tap('MyPlugin', (compiler) => {
+  console.log('Compiler is running');
+});
+```
+
+---
+
+### emit
+
+<ParamField path="emit" type="AsyncSeriesHook<[Compilation]>">
+  Called before assets are written to the output directory. This is the last chance to modify assets.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The compilation instance
+
+**Example:**
+```javascript
+compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+  // Modify or add assets
+  compilation.assets['custom-file.txt'] = {
+    source: () => 'Hello World',
+    size: () => 11
+  };
+  callback();
+});
+```
+
+---
+
+### assetEmitted
+
+<ParamField path="assetEmitted" type="AsyncSeriesHook<[string, AssetEmittedInfo]>">
+  Called when an asset has been written to the output directory.
+</ParamField>
+
+**Parameters:**
+- `file` (string) - The asset filename
+- `info` (AssetEmittedInfo) - Asset information including:
+  - `content` (Buffer) - Asset content
+  - `source` (Source) - Source object
+  - `compilation` (Compilation) - Compilation instance
+  - `outputPath` (string) - Output directory path
+  - `targetPath` (string) - Full target path
+
+**Example:**
+```javascript
+compiler.hooks.assetEmitted.tap('MyPlugin', (file, { targetPath }) => {
+  console.log(`Asset emitted: ${file} -> ${targetPath}`);
+});
+```
+
+---
+
+### afterEmit
+
+<ParamField path="afterEmit" type="AsyncSeriesHook<[Compilation]>">
+  Called after assets have been emitted to the output directory.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The compilation instance
+
+---
+
+### thisCompilation
+
+<ParamField path="thisCompilation" type="SyncHook<[Compilation, CompilationParams]>">
+  Called when a compilation is created. This hook is called before the `compilation` hook.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The new compilation instance
+- `params` (CompilationParams) - Compilation parameters containing:
+  - `normalModuleFactory` (NormalModuleFactory)
+  - `contextModuleFactory` (ContextModuleFactory)
+
+**Example:**
+```javascript
+compiler.hooks.thisCompilation.tap('MyPlugin', (compilation, { normalModuleFactory }) => {
+  // Access the compilation before plugins have been applied
+});
+```
+
+---
+
+### compilation
+
+<ParamField path="compilation" type="SyncHook<[Compilation, CompilationParams]>">
+  Called after a compilation is created. Most plugins tap into this hook to access compilation hooks.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The new compilation instance
+- `params` (CompilationParams) - Compilation parameters
+
+**Example:**
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+  // Access compilation hooks
+  compilation.hooks.optimize.tap('MyPlugin', () => {
+    console.log('Assets are being optimized.');
+  });
+});
+```
+
+---
+
+### normalModuleFactory
+
+<ParamField path="normalModuleFactory" type="SyncHook<[NormalModuleFactory]>">
+  Called after a NormalModuleFactory is created.
+</ParamField>
+
+**Parameters:**
+- `normalModuleFactory` (NormalModuleFactory) - The factory instance
+
+**Example:**
+```javascript
+compiler.hooks.normalModuleFactory.tap('MyPlugin', (factory) => {
+  factory.hooks.parser
+    .for('javascript/auto')
+    .tap('MyPlugin', (parser) => {
+      // Access parser hooks
+    });
+});
+```
+
+---
+
+### contextModuleFactory
+
+<ParamField path="contextModuleFactory" type="SyncHook<[ContextModuleFactory]>">
+  Called after a ContextModuleFactory is created.
+</ParamField>
+
+**Parameters:**
+- `contextModuleFactory` (ContextModuleFactory) - The factory instance
+
+---
+
+### beforeCompile
+
+<ParamField path="beforeCompile" type="AsyncSeriesHook<[CompilationParams]>">
+  Called before compilation parameters are created. Async hook that allows plugins to modify compilation parameters.
+</ParamField>
+
+**Parameters:**
+- `params` (CompilationParams) - Compilation parameters
+
+---
+
+### compile
+
+<ParamField path="compile" type="SyncHook<[CompilationParams]>">
+  Called right before a new compilation is created, after `beforeCompile` completes.
+</ParamField>
+
+**Parameters:**
+- `params` (CompilationParams) - Compilation parameters
+
+---
+
+### make
+
+<ParamField path="make" type="AsyncParallelHook<[Compilation]>">
+  Called during compilation to build the module graph. Entry plugins tap into this hook to add entries.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The compilation instance
+
+**Example:**
+```javascript
+compiler.hooks.make.tapAsync('MyPlugin', (compilation, callback) => {
+  compilation.addEntry(
+    './src',
+    { name: 'main' },
+    './src/index.js',
+    (err) => {
+      callback(err);
+    }
+  );
+});
+```
+
+---
+
+### finishMake
+
+<ParamField path="finishMake" type="AsyncSeriesHook<[Compilation]>">
+  Called after the make hook completes, before finishing the compilation.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The compilation instance
+
+---
+
+### afterCompile
+
+<ParamField path="afterCompile" type="AsyncSeriesHook<[Compilation]>">
+  Called after the compilation has finished and sealed.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The compilation instance
+
+---
+
+### watchRun
+
+<ParamField path="watchRun" type="AsyncSeriesHook<[Compiler]>">
+  Called when a watch compilation is starting. Similar to `run` but for watch mode.
+</ParamField>
+
+**Parameters:**
+- `compiler` (Compiler) - The compiler instance
+
+**Example:**
+```javascript
+compiler.hooks.watchRun.tap('MyPlugin', (compiler) => {
+  console.log('Watch compilation starting');
+  console.log('Modified files:', compiler.modifiedFiles);
+});
+```
+
+---
+
+### failed
+
+<ParamField path="failed" type="SyncHook<[Error]>">
+  Called when the compilation fails.
+</ParamField>
+
+**Parameters:**
+- `error` (Error) - The error that caused the failure
+
+---
+
+### invalid
+
+<ParamField path="invalid" type="SyncHook<[string | null, number]>">
+  Called when a watched file has changed and a new compilation will be triggered.
+</ParamField>
+
+**Parameters:**
+- `filename` (string | null) - The changed file path
+- `changeTime` (number) - Timestamp of the change
+
+---
+
+### watchClose
+
+<ParamField path="watchClose" type="SyncHook<[]>">
+  Called when watch mode is stopped.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### shutdown
+
+<ParamField path="shutdown" type="AsyncSeriesHook<[]>">
+  Called when the compiler is closing.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### infrastructureLog
+
+<ParamField path="infrastructureLog" type="SyncBailHook<[string, string, any[]], true | void>">
+  Called to allow plugins to log infrastructure messages.
+</ParamField>
+
+**Parameters:**
+- `origin` (string) - Logger origin/name
+- `type` (string) - Log type
+- `args` (any[]) - Log arguments
+
+**Returns:** `true | void` - Return `true` to prevent default logging
+
+---
+
+### environment
+
+<ParamField path="environment" type="SyncHook<[]>">
+  Called after the environment is prepared, while plugins are being applied.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### afterEnvironment
+
+<ParamField path="afterEnvironment" type="SyncHook<[]>">
+  Called after the environment setup is complete.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### afterPlugins
+
+<ParamField path="afterPlugins" type="SyncHook<[Compiler]>">
+  Called after all plugins have been applied to the compiler.
+</ParamField>
+
+**Parameters:**
+- `compiler` (Compiler) - The compiler instance
+
+---
+
+### afterResolvers
+
+<ParamField path="afterResolvers" type="SyncHook<[Compiler]>">
+  Called after resolver setup is complete.
+</ParamField>
+
+**Parameters:**
+- `compiler` (Compiler) - The compiler instance
+
+---
+
+### entryOption
+
+<ParamField path="entryOption" type="SyncBailHook<[string, Entry], boolean | void>">
+  Called after the entry configuration has been processed.
+</ParamField>
+
+**Parameters:**
+- `context` (string) - The base directory for resolving entry points
+- `entry` (Entry) - The entry configuration
+
+**Returns:** `boolean | void` - Return `true` to signal that the hook handled the entry configuration
+
+---
+
+### readRecords
+
+<ParamField path="readRecords" type="AsyncSeriesHook<[]>">
+  Called before records are read from disk.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### emitRecords
+
+<ParamField path="emitRecords" type="AsyncSeriesHook<[]>">
+  Called before records are written to disk.
+</ParamField>
+
+**Parameters:** None
+
+## Usage Patterns
+
+### Basic Plugin Structure
+
+```javascript
+class MyWebpackPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyWebpackPlugin', (compilation) => {
+      // Access compilation hooks
+    });
+
+    compiler.hooks.emit.tapAsync('MyWebpackPlugin', (compilation, callback) => {
+      // Async operations
+      callback();
+    });
+  }
+}
+```
+
+### Accessing Compilation Hooks
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+  compilation.hooks.buildModule.tap('MyPlugin', (module) => {
+    console.log('Building module:', module.resource);
+  });
+});
+```
+
+### Modifying Assets
+
+```javascript
+compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+  Object.keys(compilation.assets).forEach((filename) => {
+    if (filename.endsWith('.js')) {
+      const asset = compilation.assets[filename];
+      // Modify asset
+    }
+  });
+  callback();
+});
+```

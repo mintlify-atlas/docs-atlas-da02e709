@@ -1,0 +1,566 @@
+---
+title: Loader Options
+description: Configuration options for webpack loaders and the LoaderOptionsPlugin.
+---
+
+Loaders can be configured with options that customize their behavior. This page covers how to pass options to loaders and configure global loader settings.
+
+## Passing Options to Loaders
+
+There are multiple ways to pass options to loaders in webpack:
+
+### Inline Loader Options
+
+Options can be passed inline using query string syntax:
+
+```js
+import Styles from 'style-loader!css-loader?modules!./styles.css';
+```
+
+Or using object syntax:
+
+```js
+import Styles from 'style-loader!css-loader?{"modules":true}!./styles.css';
+```
+
+### Configuration Options
+
+The recommended way is to specify options in the webpack configuration:
+
+```js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              modules: true,
+              sourceMap: true
+            }
+          }
+        ]
+      }
+    ]
+  }
+};
+```
+
+## Accessing Options in Loaders
+
+### this.getOptions()
+
+Loaders access their options using `this.getOptions()`:
+
+```js
+module.exports = function(source) {
+  // Get options without validation
+  const options = this.getOptions();
+  
+  console.log(options.modules); // true
+  console.log(options.sourceMap); // true
+  
+  return transform(source, options);
+};
+```
+
+### Options Validation
+
+You can validate options using JSON Schema:
+
+```js
+const schema = {
+  type: 'object',
+  properties: {
+    format: {
+      type: 'string',
+      enum: ['esm', 'cjs', 'iife']
+    },
+    minify: {
+      type: 'boolean'
+    },
+    exclude: {
+      anyOf: [
+        { type: 'string' },
+        {
+          type: 'array',
+          items: { type: 'string' }
+        }
+      ]
+    }
+  },
+  required: ['format'],
+  additionalProperties: false
+};
+
+module.exports = function(source) {
+  // getOptions will validate against schema
+  const options = this.getOptions(schema);
+  
+  // Options are now type-safe and validated
+  return transform(source, options.format, options.minify);
+};
+```
+
+### Query String Format
+
+When options are passed as a query string, they are parsed automatically:
+
+```js
+// Loader config: 'my-loader?foo=bar&baz=true'
+
+module.exports = function(source) {
+  const options = this.getOptions();
+  console.log(options); // { foo: 'bar', baz: 'true' }
+  return source;
+};
+```
+
+### JSON Format
+
+JSON strings are parsed:
+
+```js
+// Loader config: 'my-loader?{"foo":"bar","baz":true}'
+
+module.exports = function(source) {
+  const options = this.getOptions();
+  console.log(options); // { foo: 'bar', baz: true }
+  return source;
+};
+```
+
+## LoaderOptionsPlugin
+
+The LoaderOptionsPlugin provides global options to all loaders. This is primarily for backward compatibility with webpack 1.
+
+### Basic Usage
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.LoaderOptionsPlugin({
+      minimize: true,
+      debug: false,
+      options: {
+        context: __dirname,
+        customOption: 'value'
+      }
+    })
+  ]
+};
+```
+
+### Plugin Options
+
+<ParamField path="test" type="RegExp | string | function">
+  Filter loaders that should receive the options. Only loaders matching this condition will be affected.
+
+  ```js
+  new webpack.LoaderOptionsPlugin({
+    test: /\.js$/,
+    options: {
+      // Only applied to loaders processing .js files
+    }
+  })
+  ```
+</ParamField>
+
+<ParamField path="include" type="RegExp | string | array">
+  Include specific paths for option application.
+
+  ```js
+  new webpack.LoaderOptionsPlugin({
+    include: /src/,
+    options: {
+      // Only applied to loaders processing files in src/
+    }
+  })
+  ```
+</ParamField>
+
+<ParamField path="exclude" type="RegExp | string | array">
+  Exclude specific paths from option application.
+
+  ```js
+  new webpack.LoaderOptionsPlugin({
+    exclude: /node_modules/,
+    options: {
+      // Not applied to loaders processing node_modules
+    }
+  })
+  ```
+</ParamField>
+
+<ParamField path="options" type="object">
+  The options object to pass to matching loaders. These options are merged into the loader context.
+
+  ```js
+  new webpack.LoaderOptionsPlugin({
+    options: {
+      context: __dirname,
+      customProperty: 'value'
+    }
+  })
+  ```
+</ParamField>
+
+### Accessing Plugin Options
+
+Options from LoaderOptionsPlugin are accessible directly on the loader context:
+
+```js
+// webpack.config.js
+module.exports = {
+  plugins: [
+    new webpack.LoaderOptionsPlugin({
+      options: {
+        myCustomOption: 'hello world'
+      }
+    })
+  ]
+};
+
+// In loader
+module.exports = function(source) {
+  console.log(this.myCustomOption); // 'hello world'
+  return source;
+};
+```
+
+### Common Global Options
+
+```js
+new webpack.LoaderOptionsPlugin({
+  options: {
+    // Context for resolving
+    context: __dirname,
+    
+    // Enable/disable minification
+    minimize: process.env.NODE_ENV === 'production',
+    
+    // Enable/disable debug mode
+    debug: process.env.NODE_ENV === 'development',
+    
+    // PostCSS plugins (for css-loader, etc.)
+    postcss: [
+      require('autoprefixer')
+    ],
+    
+    // Babel options (for babel-loader)
+    babel: {
+      presets: ['@babel/preset-env']
+    }
+  }
+});
+```
+
+## Common Loader Options
+
+While each loader has its own specific options, some patterns are common across many loaders:
+
+### Source Maps
+
+<ParamField path="sourceMap" type="boolean">
+  Enable/disable source map generation.
+
+  ```js
+  {
+    loader: 'css-loader',
+    options: {
+      sourceMap: true
+    }
+  }
+  ```
+</ParamField>
+
+### Caching
+
+<ParamField path="cacheDirectory" type="boolean | string">
+  Enable caching for loaders that support it (like babel-loader).
+
+  ```js
+  {
+    loader: 'babel-loader',
+    options: {
+      cacheDirectory: true,
+      // or specify directory
+      cacheDirectory: './cache'
+    }
+  }
+  ```
+</ParamField>
+
+### Include/Exclude
+
+While not loader options per se, these are common in loader rules:
+
+```js
+{
+  test: /\.js$/,
+  loader: 'babel-loader',
+  include: path.resolve(__dirname, 'src'),
+  exclude: /node_modules/,
+  options: {
+    // loader options
+  }
+}
+```
+
+## TypeScript Support
+
+For better type safety when writing loaders, you can use TypeScript:
+
+```ts
+import { LoaderDefinitionFunction } from 'webpack';
+
+interface LoaderOptions {
+  format: 'esm' | 'cjs' | 'iife';
+  minify?: boolean;
+  exclude?: string | string[];
+}
+
+const loader: LoaderDefinitionFunction<LoaderOptions> = function(source) {
+  const options = this.getOptions();
+  
+  // options is now typed as LoaderOptions
+  console.log(options.format); // Type-safe
+  
+  return transform(source, options);
+};
+
+export default loader;
+```
+
+## Options Inheritance
+
+Loaders can receive options from multiple sources, which are merged in this order:
+
+1. LoaderOptionsPlugin global options (lowest priority)
+2. Rule-level options in webpack config
+3. Inline options in import statements (highest priority)
+
+```js
+// webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: [
+          {
+            loader: 'my-loader',
+            options: {
+              option1: 'from-rule',
+              option2: 'from-rule'
+            }
+          }
+        ]
+      }
+    ]
+  },
+  plugins: [
+    new webpack.LoaderOptionsPlugin({
+      options: {
+        option2: 'from-plugin',
+        option3: 'from-plugin'
+      }
+    })
+  ]
+};
+
+// In source file
+import data from 'my-loader?option3=from-inline!./data.txt';
+
+// Resulting options in loader:
+// {
+//   option1: 'from-rule',
+//   option2: 'from-rule',     // rule overrides plugin
+//   option3: 'from-inline'     // inline overrides both
+// }
+```
+
+## Best Practices
+
+### Use Configuration Over Inline
+
+Prefer configuration-based options over inline options:
+
+```js
+// ❌ Avoid
+import data from 'json-loader?pretty=true!./data.json';
+
+// ✅ Prefer
+// In webpack.config.js
+{
+  test: /\.json$/,
+  loader: 'json-loader',
+  options: {
+    pretty: true
+  }
+}
+```
+
+### Validate Options
+
+Always validate options in your loader:
+
+```js
+const schema = {
+  type: 'object',
+  properties: {
+    // Define expected options
+  },
+  additionalProperties: false
+};
+
+module.exports = function(source) {
+  const options = this.getOptions(schema);
+  // Options are validated
+  return transform(source, options);
+};
+```
+
+### Provide Defaults
+
+Provide sensible defaults for optional options:
+
+```js
+module.exports = function(source) {
+  const options = this.getOptions();
+  
+  // Merge with defaults
+  const config = {
+    format: 'esm',
+    minify: false,
+    sourceMap: true,
+    ...options
+  };
+  
+  return transform(source, config);
+};
+```
+
+### Document Options
+
+Clearly document all options your loader accepts:
+
+```js
+/**
+ * My Custom Loader
+ * 
+ * Options:
+ * @param {string} format - Output format: 'esm', 'cjs', or 'iife' (default: 'esm')
+ * @param {boolean} minify - Minify output (default: false)
+ * @param {boolean} sourceMap - Generate source map (default: true)
+ * @param {string|string[]} exclude - Patterns to exclude
+ */
+module.exports = function(source) {
+  const options = this.getOptions();
+  // Implementation
+};
+```
+
+## Complete Example
+
+Here's a complete example showing loader options configuration:
+
+```js
+// webpack.config.js
+const webpack = require('webpack');
+const path = require('path');
+
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.custom$/,
+        use: [
+          {
+            loader: path.resolve('./loaders/custom-loader.js'),
+            options: {
+              format: 'esm',
+              minify: process.env.NODE_ENV === 'production',
+              sourceMap: true,
+              plugins: [
+                ['transform-plugin', { option: 'value' }]
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  plugins: [
+    new webpack.LoaderOptionsPlugin({
+      test: /\.custom$/,
+      options: {
+        // Global options for matching loaders
+        context: __dirname
+      }
+    })
+  ]
+};
+
+// loaders/custom-loader.js
+const schema = {
+  type: 'object',
+  properties: {
+    format: {
+      type: 'string',
+      enum: ['esm', 'cjs', 'iife']
+    },
+    minify: {
+      type: 'boolean'
+    },
+    sourceMap: {
+      type: 'boolean'
+    },
+    plugins: {
+      type: 'array',
+      items: {
+        type: 'array'
+      }
+    }
+  },
+  additionalProperties: false
+};
+
+module.exports = function(source) {
+  // Validate options
+  const options = this.getOptions(schema);
+  
+  // Set defaults
+  const config = {
+    format: 'esm',
+    minify: false,
+    sourceMap: true,
+    plugins: [],
+    ...options
+  };
+  
+  // Get logger
+  const logger = this.getLogger('custom-loader');
+  logger.info(`Processing with format: ${config.format}`);
+  
+  try {
+    // Transform source
+    const result = transform(source, config);
+    
+    if (config.sourceMap) {
+      const map = generateSourceMap(source, result);
+      this.callback(null, result, map);
+    } else {
+      return result;
+    }
+  } catch (err) {
+    this.emitError(err);
+    return source;
+  }
+};
+```

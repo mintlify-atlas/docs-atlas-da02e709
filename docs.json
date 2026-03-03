@@ -1,122 +1,179 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "webpack",
+  "theme": "sequoia",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#8DD6F9",
+    "light": "#8DD6F9",
+    "dark": "#2B3A42"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/webpack/webpack"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/webpack/webpack"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/entry-points",
+              "concepts/output",
+              "concepts/loaders",
+              "concepts/plugins",
+              "concepts/mode",
+              "concepts/modules",
+              "concepts/module-resolution",
+              "concepts/dependency-graph",
+              "concepts/targets",
+              "concepts/hot-module-replacement"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Configuration",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "configuration/overview",
+              "configuration/entry-context",
+              "configuration/output",
+              "configuration/module",
+              "configuration/resolve",
+              "configuration/optimization",
+              "configuration/dev-server",
+              "configuration/devtool",
+              "configuration/target",
+              "configuration/watch",
+              "configuration/externals",
+              "configuration/performance",
+              "configuration/node",
+              "configuration/stats"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Guides",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/getting-started",
+              "guides/asset-management",
+              "guides/output-management",
+              "guides/development",
+              "guides/production",
+              "guides/code-splitting",
+              "guides/caching",
+              "guides/tree-shaking",
+              "guides/lazy-loading",
+              "guides/shimming",
+              "guides/typescript",
+              "guides/web-workers",
+              "guides/build-performance"
+            ]
+          },
+          {
+            "group": "Loaders",
+            "pages": [
+              "loaders/overview",
+              "loaders/writing-a-loader",
+              "loaders/loader-interface"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "pages": [
+              "plugins/overview",
+              "plugins/writing-a-plugin",
+              "plugins/plugin-api"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core API",
             "pages": [
-              "api-reference/introduction"
+              "api/compiler",
+              "api/compilation",
+              "api/module",
+              "api/chunk",
+              "api/stats"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Plugin API",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/plugins/compiler-hooks",
+              "api/plugins/compilation-hooks",
+              "api/plugins/parser-hooks",
+              "api/plugins/tapable"
+            ]
+          },
+          {
+            "group": "Loader API",
+            "pages": [
+              "api/loaders/loader-context",
+              "api/loaders/loader-options"
+            ]
+          },
+          {
+            "group": "Node.js API",
+            "pages": [
+              "api/node/webpack",
+              "api/node/compiler-api",
+              "api/node/watching"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "api/cli/commands",
+              "api/cli/flags"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Built-in Plugins",
+        "groups": [
+          {
+            "group": "Core Plugins",
+            "pages": [
+              "built-in-plugins/banner-plugin",
+              "built-in-plugins/clean-plugin",
+              "built-in-plugins/define-plugin",
+              "built-in-plugins/environment-plugin",
+              "built-in-plugins/provide-plugin",
+              "built-in-plugins/source-map-dev-tool-plugin",
+              "built-in-plugins/hot-module-replacement-plugin"
+            ]
+          },
+          {
+            "group": "Optimization Plugins",
+            "pages": [
+              "built-in-plugins/split-chunks-plugin",
+              "built-in-plugins/module-concatenation-plugin",
+              "built-in-plugins/limit-chunk-count-plugin",
+              "built-in-plugins/min-chunk-size-plugin",
+              "built-in-plugins/aggressive-merging-plugin"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

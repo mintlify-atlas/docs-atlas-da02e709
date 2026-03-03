@@ -1,0 +1,382 @@
+---
+title: Module
+description: API reference for webpack's Module class
+---
+
+The `Module` class represents a single module in the webpack dependency graph. It is the base class extended by specific module types like `NormalModule`, `ContextModule`, and `ExternalModule`.
+
+## Constructor
+
+<ParamField path="type" type="ModuleTypes" required>
+  The type of the module (e.g., 'javascript/auto', 'json', 'asset')
+</ParamField>
+
+<ParamField path="context" type="string | null">
+  Optional context path for the module
+</ParamField>
+
+<ParamField path="layer" type="string | null">
+  Optional layer in which the module is placed
+</ParamField>
+
+```javascript
+// Usually created by ModuleFactory
+const module = new Module('javascript/auto', '/path/to/context');
+```
+
+## Properties
+
+<ResponseField name="type" type="ModuleTypes">
+  The module type (e.g., 'javascript/auto', 'json', 'asset/resource')
+</ResponseField>
+
+<ResponseField name="context" type="string | null">
+  The directory context for this module
+</ResponseField>
+
+<ResponseField name="layer" type="string | null">
+  The layer this module belongs to
+</ResponseField>
+
+<ResponseField name="debugId" type="number">
+  Unique debug identifier for the module
+</ResponseField>
+
+<ResponseField name="resolveOptions" type="ResolveOptions | undefined">
+  Resolve options used for this module
+</ResponseField>
+
+<ResponseField name="factoryMeta" type="FactoryMeta | undefined">
+  Metadata from the module factory
+</ResponseField>
+
+<ResponseField name="buildMeta" type="BuildMeta | undefined">
+  Metadata about how the module was built
+  - `exportsType`: Type of exports ('namespace', 'default', 'dynamic')
+  - `sideEffectFree`: Whether the module has side effects
+  - `async`: Whether the module is async
+</ResponseField>
+
+<ResponseField name="buildInfo" type="BuildInfo | undefined">
+  Information from the build process
+  - `cacheable`: Whether the module can be cached
+  - `fileDependencies`: Set of file dependencies
+  - `contextDependencies`: Set of directory dependencies
+  - `hash`: Module hash
+</ResponseField>
+
+<ResponseField name="dependencies" type="Dependency[]">
+  Array of dependencies for this module (inherited from DependenciesBlock)
+</ResponseField>
+
+## Methods
+
+### identifier()
+
+Returns a unique identifier string for the module.
+
+<ResponseField name="return" type="string">
+  A unique identifier for the module
+</ResponseField>
+
+```javascript
+const id = module.identifier();
+// e.g., "/path/to/project/src/index.js"
+```
+
+### readableIdentifier()
+
+Returns a user-readable identifier for the module.
+
+<ParamField path="requestShortener" type="RequestShortener" required>
+  Helper to shorten request strings
+</ParamField>
+
+<ResponseField name="return" type="string">
+  A human-readable module identifier
+</ResponseField>
+
+```javascript
+const readable = module.readableIdentifier(compilation.requestShortener);
+// e.g., "./src/index.js"
+```
+
+### build()
+
+Builds the module by reading, parsing, and processing its source code.
+
+<ParamField path="options" type="WebpackOptions" required>
+  Webpack configuration options
+</ParamField>
+
+<ParamField path="compilation" type="Compilation" required>
+  The compilation instance
+</ParamField>
+
+<ParamField path="resolver" type="ResolverWithOptions" required>
+  The resolver for dependencies
+</ParamField>
+
+<ParamField path="fs" type="InputFileSystem" required>
+  The file system to use
+</ParamField>
+
+<ParamField path="callback" type="(err?: Error) => void" required>
+  Callback invoked when build completes
+</ParamField>
+
+### needBuild()
+
+Determines if the module needs to be rebuilt.
+
+<ParamField path="context" type="NeedBuildContext" required>
+  Context with file system information
+</ParamField>
+
+<ParamField path="callback" type="(err?: Error, needBuild?: boolean) => void" required>
+  Callback with rebuild decision
+</ParamField>
+
+```javascript
+module.needBuild(context, (err, needBuild) => {
+  if (needBuild) {
+    // Rebuild required
+  }
+});
+```
+
+### size()
+
+Returns the estimated size of the module in bytes.
+
+<ParamField path="type" type="string">
+  The source type to get size for
+</ParamField>
+
+<ResponseField name="return" type="number">
+  Size in bytes
+</ResponseField>
+
+```javascript
+const moduleSize = module.size('javascript');
+console.log(`Module size: ${moduleSize} bytes`);
+```
+
+### getSourceTypes()
+
+Returns the source types this module provides.
+
+<ResponseField name="return" type="ReadonlySet<string>">
+  Set of source types (e.g., 'javascript', 'css')
+</ResponseField>
+
+```javascript
+const types = module.getSourceTypes();
+// Set { 'javascript' }
+```
+
+### codeGeneration()
+
+Generates code for this module.
+
+<ParamField path="context" type="CodeGenerationContext" required>
+  Context including dependency templates, runtime template, module graph, etc.
+</ParamField>
+
+<ResponseField name="return" type="CodeGenerationResult">
+  Object with generated sources and runtime requirements
+  - `sources`: Map of source type to Source object
+  - `runtimeRequirements`: Set of required runtime modules
+  - `data`: Additional code generation data
+</ResponseField>
+
+```javascript
+const result = module.codeGeneration({
+  dependencyTemplates: compilation.dependencyTemplates,
+  runtimeTemplate: compilation.runtimeTemplate,
+  moduleGraph: compilation.moduleGraph,
+  chunkGraph: compilation.chunkGraph,
+  runtime: chunk.runtime
+});
+
+const jsSource = result.sources.get('javascript');
+```
+
+### nameForCondition()
+
+Returns the path used for condition matching in rules.
+
+<ResponseField name="return" type="string | null">
+  The path for condition matching or null
+</ResponseField>
+
+```javascript
+const conditionPath = module.nameForCondition();
+// e.g., "/absolute/path/to/module.js"
+```
+
+### libIdent()
+
+Returns an identifier for library inclusion.
+
+<ParamField path="options" type="LibIdentOptions" required>
+  Options including context path
+</ParamField>
+
+<ResponseField name="return" type="string | null">
+  Library identifier or null
+</ResponseField>
+
+### updateHash()
+
+Updates a hash with module-specific data.
+
+<ParamField path="hash" type="Hash" required>
+  The hash object to update
+</ParamField>
+
+<ParamField path="context" type="UpdateHashContext" required>
+  Context with chunk graph and runtime
+</ParamField>
+
+```javascript
+const hash = require('crypto').createHash('md5');
+module.updateHash(hash, { chunkGraph, runtime });
+```
+
+### addWarning()
+
+Adds a warning to the module.
+
+<ParamField path="warning" type="WebpackError" required>
+  The warning to add
+</ParamField>
+
+```javascript
+module.addWarning(new WebpackError('Deprecation warning'));
+```
+
+### addError()
+
+Adds an error to the module.
+
+<ParamField path="error" type="WebpackError" required>
+  The error to add
+</ParamField>
+
+```javascript
+module.addError(new WebpackError('Parsing failed'));
+```
+
+### getWarnings()
+
+Returns warnings for this module.
+
+<ResponseField name="return" type="Iterable<WebpackError> | undefined">
+  Module warnings or undefined
+</ResponseField>
+
+### getErrors()
+
+Returns errors for this module.
+
+<ResponseField name="return" type="Iterable<WebpackError> | undefined">
+  Module errors or undefined
+</ResponseField>
+
+### getExportsType()
+
+Determines the exports type based on module metadata.
+
+<ParamField path="moduleGraph" type="ModuleGraph" required>
+  The module graph
+</ParamField>
+
+<ParamField path="strict" type="boolean | undefined" required>
+  Whether the importing module is strict
+</ParamField>
+
+<ResponseField name="return" type="'namespace' | 'default-only' | 'default-with-named' | 'dynamic'">
+  The exports type
+  - `namespace`: Exports is a namespace object
+  - `default-only`: Only default export
+  - `default-with-named`: Default and named exports
+  - `dynamic`: Runtime check for __esModule
+</ResponseField>
+
+```javascript
+const exportsType = module.getExportsType(moduleGraph, true);
+```
+
+## Working with ModuleGraph
+
+The `Module` class works closely with `ModuleGraph` to manage relationships:
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      compilation.hooks.finishModules.tap('MyPlugin', (modules) => {
+        const { moduleGraph } = compilation;
+        
+        for (const module of modules) {
+          // Get module connections
+          const connections = moduleGraph.getIncomingConnections(module);
+          
+          // Check if module has side effects
+          const hasSideEffects = module.buildMeta?.sideEffectFree === false;
+          
+          // Get used exports
+          const usedExports = moduleGraph.getUsedExports(module, runtime);
+          
+          console.log(`Module: ${module.identifier()}`);
+          console.log(`  Incoming connections: ${connections.length}`);
+          console.log(`  Has side effects: ${hasSideEffects}`);
+          console.log(`  Used exports:`, usedExports);
+        }
+      });
+    });
+  }
+}
+```
+
+## Example: Analyzing Module Dependencies
+
+```javascript
+class ModuleAnalyzerPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('ModuleAnalyzer', (compilation) => {
+      compilation.hooks.finishModules.tap('ModuleAnalyzer', (modules) => {
+        const moduleGraph = compilation.moduleGraph;
+        const analysis = [];
+        
+        for (const module of modules) {
+          const deps = module.dependencies.length;
+          const size = module.size();
+          const type = module.type;
+          
+          analysis.push({
+            id: module.identifier(),
+            readable: module.readableIdentifier(compilation.requestShortener),
+            type,
+            size,
+            dependencies: deps,
+            buildInfo: {
+              cacheable: module.buildInfo?.cacheable,
+              hash: module.buildInfo?.hash
+            }
+          });
+        }
+        
+        // Sort by size
+        analysis.sort((a, b) => b.size - a.size);
+        
+        console.log('Top 10 largest modules:');
+        analysis.slice(0, 10).forEach(m => {
+          console.log(`  ${m.readable}: ${m.size} bytes`);
+        });
+      });
+    });
+  }
+}
+```

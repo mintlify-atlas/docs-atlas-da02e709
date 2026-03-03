@@ -1,0 +1,490 @@
+---
+title: Hot Module Replacement
+description: Update modules in the browser without a full page reload
+---
+
+Hot Module Replacement (HMR) exchanges, adds, or removes modules while an application is running, without a full reload. This significantly speeds up development.
+
+## How It Works
+
+From `HotModuleReplacementPlugin.js`, HMR provides runtime API:
+
+```javascript HotModuleReplacementPlugin.js
+class HotModuleReplacementPlugin {
+  apply(compiler) {
+    if (compiler.options.output.strictModuleErrorHandling === undefined) {
+      compiler.options.output.strictModuleErrorHandling = true;
+    }
+    
+    const runtimeRequirements = [RuntimeGlobals.module];
+    
+    compiler.hooks.compilation.tap(
+      'HotModuleReplacementPlugin',
+      (compilation, { normalModuleFactory }) => {
+        // Inject module.hot API
+        normalModuleFactory.hooks.parser
+          .for('javascript/auto')
+          .tap('HotModuleReplacementPlugin', (parser) => {
+            parser.hooks.evaluateIdentifier
+              .for('module.hot')
+              .tap('HotModuleReplacementPlugin', (expr) => {
+                return evaluateToIdentifier(
+                  'module.hot',
+                  'module',
+                  () => ['hot'],
+                  true
+                )(expr);
+              });
+          });
+      }
+    );
+  }
+}
+```
+
+## Enabling HMR
+
+<Tabs>
+  <Tab title="webpack-dev-server">
+    ```javascript webpack.config.js
+    module.exports = {
+      devServer: {
+        hot: true  // Enable HMR
+      }
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Plugin">
+    ```javascript webpack.config.js
+    const webpack = require('webpack');
+    
+    module.exports = {
+      plugins: [
+        new webpack.HotModuleReplacementPlugin()
+      ]
+    };
+    ```
+  </Tab>
+  
+  <Tab title="Node.js API">
+    ```javascript
+    const webpack = require('webpack');
+    const config = require('./webpack.config.js');
+    
+    const compiler = webpack(config);
+    
+    compiler.watch({}, (err, stats) => {
+      // HMR updates on file changes
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## module.hot API
+
+From `HotModuleReplacementPlugin.js`, the runtime API:
+
+```javascript Application Code
+if (module.hot) {
+  // Accept updates for this module
+  module.hot.accept();
+  
+  // Accept updates for specific dependencies
+  module.hot.accept('./dependency', () => {
+    // Handle the updated dependency
+  });
+  
+  // Accept multiple dependencies
+  module.hot.accept(['./dep1', './dep2'], () => {
+    // Handle updates
+  });
+  
+  // Decline updates (force full reload)
+  module.hot.decline();
+  
+  // Decline specific dependencies
+  module.hot.decline('./dependency');
+  
+  // Dispose handler (cleanup before update)
+  module.hot.dispose((data) => {
+    // Save state before module is replaced
+    data.prevState = getCurrentState();
+  });
+  
+  // Get data from dispose
+  if (module.hot.data) {
+    restoreState(module.hot.data.prevState);
+  }
+  
+  // Remove handler
+  module.hot.removeDisposeHandler(handler);
+  
+  // Check status
+  const status = module.hot.status();
+  // Possible values: 'idle', 'check', 'prepare', 'ready', 'dispose', 'apply', 'abort', 'fail'
+  
+  // Add status handler
+  module.hot.addStatusHandler((status) => {
+    console.log('HMR Status:', status);
+  });
+}
+```
+
+## Accept Handler
+
+From the HMR plugin implementation:
+
+```javascript HotModuleReplacementPlugin.js
+const createAcceptHandler = (parser, ParamDependency) => {
+  return (expr) => {
+    const module = parser.state.module;
+    const dep = new ConstDependency(
+      `${module.moduleArgument}.hot.accept`,
+      expr.callee.range,
+      runtimeRequirements
+    );
+    dep.loc = expr.loc;
+    module.addPresentationalDependency(dep);
+    module.buildInfo.moduleConcatenationBailout = 'Hot Module Replacement';
+    
+    if (expr.arguments.length >= 1) {
+      const arg = parser.evaluateExpression(expr.arguments[0]);
+      let params = [];
+      
+      if (arg.isString()) {
+        params = [arg];
+      } else if (arg.isArray()) {
+        params = arg.items.filter((param) => param.isString());
+      }
+      
+      const requests = [];
+      if (params.length > 0) {
+        for (const [idx, param] of params.entries()) {
+          const request = param.string;
+          const dep = new ParamDependency(request, param.range);
+          dep.optional = true;
+          dep.loc = Object.create(expr.loc);
+          dep.loc.index = idx;
+          module.addDependency(dep);
+          requests.push(request);
+        }
+      }
+    }
+    
+    return true;
+  };
+};
+```
+
+## HMR Runtime
+
+From `HotModuleReplacementRuntimeModule.js`:
+
+```javascript Runtime Code
+// HMR runtime methods injected into bundle
+__webpack_require__.hmrC = {}; // HMR callbacks
+__webpack_require__.hmrI = {}; // HMR init
+
+// Apply updates
+function hotApply(options) {
+  // 1. Dispose old modules
+  // 2. Load new modules
+  // 3. Execute update handlers
+  // 4. Update module cache
+}
+
+// Check for updates
+function hotCheck(autoApply) {
+  return fetch('hot-update.json')
+    .then(response => response.json())
+    .then(update => {
+      // Download updated chunks
+      return Promise.all(
+        update.c.map(chunkId => 
+          __webpack_require__.l(`${chunkId}.hot-update.js`)
+        )
+      );
+    });
+}
+```
+
+## Update Manifest
+
+When files change, webpack generates:
+
+```json hot-update.json
+{
+  "h": "abc123def456",  // Full hash
+  "c": [0, 1]           // Changed chunk IDs
+}
+```
+
+```javascript 0.hot-update.js
+// Updated chunk code
+self["webpackHotUpdate"]([0], {
+  "./src/module.js": function(module, exports, __webpack_require__) {
+    // New module code
+  }
+});
+```
+
+## React Example
+
+```javascript App.js
+import React from 'react';
+import { render } from 'react-dom';
+import App from './App';
+
+const root = document.getElementById('root');
+
+function renderApp() {
+  render(<App />, root);
+}
+
+renderApp();
+
+if (module.hot) {
+  // Accept updates for the App component
+  module.hot.accept('./App', () => {
+    // Re-render the app
+    renderApp();
+  });
+}
+```
+
+## Vue Example
+
+```javascript main.js
+import Vue from 'vue';
+import App from './App.vue';
+
+const vm = new Vue({
+  render: h => h(App)
+}).$mount('#app');
+
+if (module.hot) {
+  module.hot.accept('./App.vue', () => {
+    // Reload the app
+    vm.$forceUpdate();
+  });
+}
+```
+
+## CSS HMR
+
+```javascript
+import './styles.css';
+
+// css-loader and style-loader handle HMR automatically
+// No additional code needed
+
+if (module.hot) {
+  module.hot.accept('./styles.css', () => {
+    // CSS is automatically updated
+  });
+}
+```
+
+## State Preservation
+
+```javascript
+let state = { count: 0 };
+
+function increment() {
+  state.count++;
+  render();
+}
+
+if (module.hot) {
+  // Save state before update
+  module.hot.dispose((data) => {
+    data.state = state;
+  });
+  
+  // Restore state after update
+  if (module.hot.data) {
+    state = module.hot.data.state;
+  }
+  
+  module.hot.accept();
+}
+```
+
+## HMR Status Lifecycle
+
+<Steps>
+  <Step title="idle">
+    Waiting for file changes
+  </Step>
+  <Step title="check">
+    Checking for updates from server
+  </Step>
+  <Step title="prepare">
+    Getting ready to apply updates
+  </Step>
+  <Step title="ready">
+    Update is ready to apply
+  </Step>
+  <Step title="dispose">
+    Calling dispose handlers
+  </Step>
+  <Step title="apply">
+    Applying the update
+  </Step>
+  <Step title="idle">
+    Update complete, back to idle
+  </Step>
+</Steps>
+
+Error states:
+- `abort` - Update was aborted
+- `fail` - Update failed
+
+## Error Handling
+
+```javascript
+if (module.hot) {
+  module.hot.accept('./component', () => {
+    try {
+      // Try to apply update
+      updateComponent();
+    } catch (err) {
+      // Handle update error
+      console.error('Error applying HMR update:', err);
+      // Optionally force reload
+      window.location.reload();
+    }
+  });
+  
+  // Handle status changes
+  module.hot.addStatusHandler((status) => {
+    if (status === 'fail') {
+      console.error('HMR failed');
+    }
+  });
+}
+```
+
+## Bubbling
+
+<Note>
+If a module doesn't handle updates, they bubble up to parent modules.
+</Note>
+
+```javascript
+// module-a.js
+import './module-b';
+// No HMR handling - updates bubble up
+
+// module-b.js  
+export const value = 42;
+// No HMR handling - updates bubble up
+
+// entry.js
+import './module-a';
+
+if (module.hot) {
+  // Catches updates from module-a and module-b
+  module.hot.accept('./module-a');
+}
+```
+
+## Declining Updates
+
+```javascript
+if (module.hot) {
+  // Decline all updates - force full reload
+  module.hot.decline();
+  
+  // Decline specific dependency updates
+  module.hot.decline('./legacy-module');
+}
+```
+
+## Performance
+
+HMR impact on build:
+
+<CodeGroup>
+```javascript Development
+{
+  mode: 'development',
+  devServer: {
+    hot: true  // Minimal overhead
+  }
+}
+```
+
+```javascript Production  
+{
+  mode: 'production',
+  // HMR plugin is NOT included
+  // No runtime overhead
+}
+```
+</CodeGroup>
+
+<Warning>
+Never use HMR in production. It adds significant runtime code and is only for development.
+</Warning>
+
+## Custom HMR
+
+Implement custom update logic:
+
+```javascript
+class MyComponent {
+  constructor(options) {
+    this.options = options;
+    this.init();
+    
+    if (module.hot) {
+      // Store instance reference
+      module.hot.dispose((data) => {
+        data.instance = this;
+      });
+      
+      // Reuse instance on update
+      if (module.hot.data) {
+        const prevInstance = module.hot.data.instance;
+        this.restore(prevInstance);
+      }
+      
+      module.hot.accept();
+    }
+  }
+  
+  restore(prevInstance) {
+    // Transfer state from old instance
+    this.state = prevInstance.state;
+  }
+}
+```
+
+## Debugging
+
+```javascript
+if (module.hot) {
+  // Log all HMR events
+  module.hot.addStatusHandler((status) => {
+    console.log('[HMR] Status:', status);
+  });
+  
+  // Check current status
+  console.log('[HMR] Current status:', module.hot.status());
+  
+  // Manual check for updates
+  module.hot.check(true).then((updatedModules) => {
+    console.log('[HMR] Updated modules:', updatedModules);
+  }).catch((err) => {
+    console.error('[HMR] Update failed:', err);
+  });
+}
+```
+
+## Related Configuration
+
+- [DevServer](/configuration/dev-server) - Configure dev server
+- [Mode](/concepts/mode) - Set development mode
+- [Plugins](/concepts/plugins) - HMR plugin configuration

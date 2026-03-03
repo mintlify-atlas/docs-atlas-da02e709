@@ -1,0 +1,275 @@
+---
+title: Compiler
+description: API reference for webpack's Compiler class
+---
+
+The `Compiler` class is the main engine of webpack that creates a compilation instance with all the build options and orchestrates the entire build process.
+
+## Constructor
+
+<ParamField path="context" type="string" required>
+  The compilation path (absolute path to the project root)
+</ParamField>
+
+<ParamField path="options" type="WebpackOptions">
+  Webpack configuration options
+</ParamField>
+
+```javascript
+const { Compiler } = require('webpack');
+const compiler = new Compiler('/path/to/project', options);
+```
+
+## Properties
+
+<ResponseField name="hooks" type="object">
+  Tapable hooks for the compilation lifecycle. See [Compiler Hooks](/api/plugins/compiler-hooks) for details.
+</ResponseField>
+
+<ResponseField name="options" type="WebpackOptions">
+  The webpack configuration options passed to the compiler
+</ResponseField>
+
+<ResponseField name="context" type="string">
+  The absolute path to the project root directory
+</ResponseField>
+
+<ResponseField name="outputPath" type="string">
+  The output directory path where bundles will be emitted
+</ResponseField>
+
+<ResponseField name="running" type="boolean">
+  Indicates whether a compilation is currently in progress
+</ResponseField>
+
+<ResponseField name="watchMode" type="boolean">
+  Indicates whether the compiler is running in watch mode
+</ResponseField>
+
+<ResponseField name="outputFileSystem" type="OutputFileSystem | null">
+  The file system used for writing output files
+</ResponseField>
+
+<ResponseField name="inputFileSystem" type="InputFileSystem | null">
+  The file system used for reading input files
+</ResponseField>
+
+<ResponseField name="records" type="Records">
+  Persistent compilation data stored across builds
+</ResponseField>
+
+## Methods
+
+### run()
+
+Runs the compiler to produce a single build.
+
+<ParamField path="callback" type="(err: Error | null, stats?: Stats) => void" required>
+  Callback function invoked when the compilation completes
+</ParamField>
+
+```javascript
+compiler.run((err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  console.log(stats.toString());
+});
+```
+
+### watch()
+
+Runs the compiler in watch mode, rebuilding when files change.
+
+<ParamField path="watchOptions" type="WatchOptions" required>
+  Configuration options for the watcher
+</ParamField>
+
+<ParamField path="handler" type="(err: Error | null, stats?: Stats) => void" required>
+  Callback function invoked after each compilation
+</ParamField>
+
+<ResponseField name="return" type="Watching">
+  A Watching instance that can be used to stop watching
+</ResponseField>
+
+```javascript
+const watching = compiler.watch({
+  aggregateTimeout: 300,
+  poll: undefined
+}, (err, stats) => {
+  console.log('Compilation completed');
+});
+
+// Stop watching
+watching.close(() => {
+  console.log('Watching ended');
+});
+```
+
+### compile()
+
+Creates a new compilation. This is called internally by `run()` and `watch()`.
+
+<ParamField path="callback" type="(err: Error | null, compilation?: Compilation) => void" required>
+  Callback function invoked when compilation is created
+</ParamField>
+
+```javascript
+compiler.compile((err, compilation) => {
+  if (err) throw err;
+  // Access compilation object
+});
+```
+
+### getCache()
+
+Returns a cache facade for the specified cache name.
+
+<ParamField path="name" type="string" required>
+  The cache name/namespace
+</ParamField>
+
+<ResponseField name="return" type="CacheFacade">
+  A cache facade instance for the specified namespace
+</ResponseField>
+
+```javascript
+const cache = compiler.getCache('MyPlugin');
+```
+
+### getInfrastructureLogger()
+
+Creates a logger for infrastructure-level logging.
+
+<ParamField path="name" type="string | (() => string)" required>
+  Name of the logger or function returning the name
+</ParamField>
+
+<ResponseField name="return" type="Logger">
+  A logger instance
+</ResponseField>
+
+```javascript
+const logger = compiler.getInfrastructureLogger('MyPlugin');
+logger.log('Starting plugin execution');
+```
+
+### emitAssets()
+
+Emits all assets from the compilation to the output file system.
+
+<ParamField path="compilation" type="Compilation" required>
+  The compilation whose assets should be emitted
+</ParamField>
+
+<ParamField path="callback" type="(err?: Error) => void" required>
+  Callback invoked when assets are emitted
+</ParamField>
+
+### close()
+
+Closes the compiler and releases resources.
+
+<ParamField path="callback" type="(err?: Error) => void" required>
+  Callback invoked when the compiler is closed
+</ParamField>
+
+```javascript
+compiler.close((err) => {
+  if (err) throw err;
+  console.log('Compiler closed');
+});
+```
+
+### createChildCompiler()
+
+Creates a child compiler for nested compilations.
+
+<ParamField path="compilation" type="Compilation" required>
+  The parent compilation
+</ParamField>
+
+<ParamField path="compilerName" type="string" required>
+  Name for the child compiler
+</ParamField>
+
+<ParamField path="compilerIndex" type="number" required>
+  Index of the child compiler
+</ParamField>
+
+<ParamField path="outputOptions" type="Partial<OutputOptions>">
+  Output options override
+</ParamField>
+
+<ParamField path="plugins" type="Plugins">
+  Plugins to apply to the child compiler
+</ParamField>
+
+<ResponseField name="return" type="Compiler">
+  The created child compiler instance
+</ResponseField>
+
+```javascript
+const childCompiler = compiler.createChildCompiler(
+  compilation,
+  'child-compiler',
+  0,
+  { filename: 'child-[name].js' },
+  [new SomePlugin()]
+);
+```
+
+## Hooks
+
+The Compiler exposes a wide range of hooks for tapping into the compilation lifecycle:
+
+- `initialize` - Called when the compiler is initialized
+- `beforeRun` - Called before a compilation run starts
+- `run` - Called when a compilation run starts
+- `beforeCompile` - Called before compilation parameters are created
+- `compile` - Called when a new compilation is created
+- `make` - Called when the compilation starts building modules
+- `emit` - Called before emitting assets to output directory
+- `afterEmit` - Called after emitting assets
+- `done` - Called when compilation has completed
+- `failed` - Called if compilation fails
+
+For a complete list, see the [Compiler Hooks documentation](/api/plugins/compiler-hooks).
+
+## Example Usage
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config');
+
+const compiler = webpack(config);
+
+// Tap into hooks
+compiler.hooks.beforeRun.tap('MyPlugin', (compiler) => {
+  console.log('Starting compilation...');
+});
+
+compiler.hooks.done.tap('MyPlugin', (stats) => {
+  console.log('Compilation finished!');
+});
+
+// Run compilation
+compiler.run((err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  
+  if (stats.hasErrors()) {
+    console.error('Build failed with errors');
+  }
+  
+  console.log(stats.toString({ colors: true }));
+  
+  compiler.close((closeErr) => {
+    if (closeErr) console.error(closeErr);
+  });
+});
+```

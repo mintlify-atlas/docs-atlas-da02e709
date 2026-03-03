@@ -1,0 +1,478 @@
+---
+title: Module Resolution
+description: How webpack resolves module requests to absolute paths
+---
+
+Webpack uses [enhanced-resolve](https://github.com/webpack/enhanced-resolve) to resolve module requests to absolute file paths. This allows you to import modules using various syntaxes.
+
+## Resolver Configuration
+
+From `Compiler.js` and `ResolverFactory.js`, webpack creates resolvers:
+
+```javascript Compiler.js
+class Compiler {
+  constructor(context, options) {
+    this.resolverFactory = new ResolverFactory();
+  }
+}
+```
+
+```javascript ResolverFactory.js
+class ResolverFactory {
+  get(type, resolveOptions) {
+    // Types: 'normal', 'loader', 'context'
+    // Returns configured resolver for the type
+  }
+}
+```
+
+## Resolution Process
+
+From `NormalModuleFactory.js`, module resolution:
+
+```javascript NormalModuleFactory.js
+resolveResource(
+  contextInfo,
+  context,
+  unresolvedResource,
+  resolver,
+  resolveContext,
+  callback
+) {
+  resolver.resolve(
+    contextInfo,
+    context,
+    unresolvedResource,
+    resolveContext,
+    (err, resolvedResource, resolvedResourceResolveData) => {
+      if (err) {
+        // Provide helpful error messages
+        return this._resolveResourceErrorHints(
+          err,
+          contextInfo,
+          context,
+          unresolvedResource,
+          resolver,
+          resolveContext,
+          callback
+        );
+      }
+      callback(null, resolvedResource, resolvedResourceResolveData);
+    }
+  );
+}
+```
+
+## Resolve Configuration
+
+```javascript webpack.config.js
+module.exports = {
+  resolve: {
+    // Directories to search for modules
+    modules: ['node_modules', 'src'],
+    
+    // Extensions to try
+    extensions: ['.js', '.jsx', '.json'],
+    
+    // Aliases
+    alias: {
+      '@': path.resolve(__dirname, 'src/'),
+      'Components': path.resolve(__dirname, 'src/components/'),
+      'Utils': path.resolve(__dirname, 'src/utils/')
+    },
+    
+    // Fields in package.json
+    mainFields: ['browser', 'module', 'main'],
+    
+    // Filename used for main field
+    mainFiles: ['index'],
+    
+    // Symlink behavior
+    symlinks: true,
+    
+    // Cache resolution
+    cache: true,
+    
+    // Resolve ./ and ../ to absolute paths
+    fullySpecified: false
+  }
+};
+```
+
+## Module Paths
+
+<Tabs>
+  <Tab title="Relative">
+    ```javascript
+    import module from './module';
+    import module from '../parent/module';
+    ```
+    
+    Resolved relative to the importing file's directory.
+  </Tab>
+  
+  <Tab title="Absolute">
+    ```javascript
+    import module from '/home/user/project/module';
+    ```
+    
+    Resolved as absolute path.
+  </Tab>
+  
+  <Tab title="Module">
+    ```javascript
+    import module from 'lodash';
+    import module from '@babel/core';
+    ```
+    
+    Searched in `resolve.modules` directories.
+  </Tab>
+  
+  <Tab title="Alias">
+    ```javascript
+    import Button from '@/components/Button';
+    import utils from 'Utils/helpers';
+    ```
+    
+    Resolved via `resolve.alias` configuration.
+  </Tab>
+</Tabs>
+
+## Extensions
+
+Webpack tries extensions in order:
+
+```javascript
+// Configuration
+resolve: {
+  extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
+}
+
+// Import
+import Component from './Component';
+
+// Tries in order:
+// 1. ./Component.js
+// 2. ./Component.jsx  
+// 3. ./Component.ts
+// 4. ./Component.tsx
+// 5. ./Component.json
+```
+
+<Warning>
+Providing extensions can impact build performance. Only include necessary extensions.
+</Warning>
+
+## Alias Resolution
+
+From the resolver, aliases are expanded:
+
+```javascript webpack.config.js
+resolve: {
+  alias: {
+    // Exact match
+    'react$': path.resolve(__dirname, 'node_modules/react/cjs/react.production.min.js'),
+    
+    // Directory alias
+    '@': path.resolve(__dirname, 'src/'),
+    
+    // Package alias
+    'lodash': path.resolve(__dirname, 'node_modules/lodash-es')
+  }
+}
+```
+
+Usage:
+```javascript
+import React from 'react';      // Uses exact alias
+import Button from '@/Button';   // Expands to src/Button
+import { map } from 'lodash';    // Uses lodash-es
+```
+
+## Package Resolution
+
+When resolving packages, webpack checks `package.json`:
+
+```json package.json
+{
+  "name": "my-library",
+  "main": "./dist/index.js",        // CommonJS entry
+  "module": "./dist/index.esm.js",  // ES Module entry
+  "browser": "./dist/browser.js"    // Browser-specific
+}
+```
+
+Configuration:
+```javascript webpack.config.js
+resolve: {
+  mainFields: ['browser', 'module', 'main']
+}
+
+// Resolution order:
+// 1. browser field
+// 2. module field
+// 3. main field
+```
+
+## Directory Resolution
+
+When importing a directory:
+
+```javascript
+import utils from './utils';
+
+// Webpack looks for:
+// 1. ./utils/package.json with main field
+// 2. ./utils/index.js (from mainFiles)
+```
+
+Configuration:
+```javascript
+resolve: {
+  mainFiles: ['index', 'main']
+}
+```
+
+## Loader Resolution
+
+Loaders have separate resolution configuration:
+
+```javascript webpack.config.js
+module.exports = {
+  resolveLoader: {
+    modules: ['node_modules', path.resolve(__dirname, 'loaders')],
+    extensions: ['.js', '.json'],
+    mainFields: ['loader', 'main'],
+    moduleExtensions: ['-loader']
+  }
+};
+```
+
+From `NormalModuleFactory.js`, loader name expansion:
+```javascript
+// Auto-add -loader suffix
+if (err && !item.loader.endsWith('-loader')) {
+  return resolver.resolve(
+    contextInfo,
+    context,
+    `${item.loader}-loader`,  // Try with -loader suffix
+    resolveContext,
+    callback
+  );
+}
+```
+
+## Conditional Resolution
+
+Resolve based on conditions:
+
+```javascript webpack.config.js
+resolve: {
+  conditionNames: ['import', 'require', 'node'],
+  
+  // In package.json
+  // "exports": {
+  //   "import": "./index.mjs",
+  //   "require": "./index.cjs"
+  // }
+}
+```
+
+## Exports Field
+
+Package.json exports field:
+
+```json package.json
+{
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    },
+    "./utils": "./dist/utils.js",
+    "./package.json": "./package.json"
+  }
+}
+```
+
+Usage:
+```javascript
+import pkg from 'my-package';        // Uses exports['.']
+import utils from 'my-package/utils'; // Uses exports['./utils']
+```
+
+## Error Messages
+
+From `NormalModuleFactory.js`, webpack provides detailed resolution errors:
+
+```javascript
+_resolveResourceErrorHints(error, contextInfo, context, unresolvedResource, resolver, resolveContext, callback) {
+  asyncLib.parallel([
+    // Check if fullySpecified issue
+    (callback) => {
+      if (!resolver.options.fullySpecified) return callback();
+      
+      resolver.withOptions({ fullySpecified: false })
+        .resolve(contextInfo, context, unresolvedResource, resolveContext, (err, resolvedResource) => {
+          if (!err && resolvedResource) {
+            return callback(null, `Did you mean '${resource}'?
+              BREAKING CHANGE: The request '${unresolvedResource}' failed to resolve only because it was resolved as fully specified.`);
+          }
+          callback();
+        });
+    },
+    
+    // Check if relative path needed
+    (callback) => {
+      if (/^\.\.\//.test(unresolvedResource)) return callback();
+      
+      resolver.resolve(contextInfo, context, `./${unresolvedResource}`, resolveContext, (err, resolvedResource) => {
+        if (!err && resolvedResource) {
+          return callback(null, `Did you mean './${unresolvedResource}'?
+            Requests that should resolve in the current directory need to start with './'`);
+        }
+        callback();
+      });
+    }
+  ], (err, hints) => {
+    callback(null, hints.filter(Boolean));
+  });
+}
+```
+
+## Symlinks
+
+Control symlink resolution:
+
+```javascript webpack.config.js
+resolve: {
+  symlinks: true  // Follow symlinks (default)
+}
+
+// When false, symlinks are not resolved
+// Useful for better performance in large projects
+```
+
+## Cache
+
+Resolution caching:
+
+```javascript webpack.config.js
+resolve: {
+  cache: true,  // Enable resolution caching
+  
+  // Bust cache on changes
+  cachePredicate: (module) => {
+    return !module.context.includes('node_modules');
+  }
+}
+```
+
+## Restrictions
+
+Restrict module resolution:
+
+```javascript webpack.config.js
+resolve: {
+  // Only resolve from these directories
+  restrictions: [path.resolve(__dirname, 'src')],
+  
+  // Or restrict with regex
+  restrictions: [/src/]
+}
+```
+
+## Fully Specified
+
+<Note>
+ES modules require fully specified imports in strict mode.
+</Note>
+
+```javascript webpack.config.js
+resolve: {
+  fullySpecified: true  // Require full paths with extensions
+}
+```
+
+With `fullySpecified: true`:
+```javascript
+// Must include extension
+import module from './module.js'; // ✓
+import module from './module';    // ✗ Error
+```
+
+## Resolver Plugins
+
+From `ResolverCachePlugin.js`, resolution can be extended:
+
+```javascript
+class MyResolverPlugin {
+  apply(resolver) {
+    resolver.hooks.resolve.tapAsync(
+      'MyResolverPlugin',
+      (request, resolveContext, callback) => {
+        // Custom resolution logic
+        if (request.request.startsWith('custom:')) {
+          const path = handleCustomProtocol(request.request);
+          return callback(null, { path });
+        }
+        callback();
+      }
+    );
+  }
+}
+
+// Usage
+module.exports = {
+  resolve: {
+    plugins: [new MyResolverPlugin()]
+  }
+};
+```
+
+## Common Issues
+
+<CodeGroup>
+```javascript Missing Extension
+// Error: Can't resolve './module'
+
+// Solutions:
+// 1. Add extension
+import module from './module.js';
+
+// 2. Configure extensions
+resolve: {
+  extensions: ['.js', '.jsx']
+}
+```
+
+```javascript Relative Path
+// Error: Can't resolve 'utils'
+
+// Solution: Add ./
+import utils from './utils';
+
+// Or configure modules
+resolve: {
+  modules: ['node_modules', 'src']
+}
+```
+
+```javascript Alias Not Found
+// Error: Can't resolve '@/components'
+
+// Solution: Configure alias
+resolve: {
+  alias: {
+    '@': path.resolve(__dirname, 'src')
+  }
+}
+```
+</CodeGroup>
+
+## Related Concepts
+
+- [Modules](/concepts/modules) - What gets resolved
+- [Loaders](/concepts/loaders) - Loader resolution
+- [Entry Points](/concepts/entry-points) - Entry module resolution

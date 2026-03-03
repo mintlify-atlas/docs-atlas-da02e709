@@ -1,0 +1,430 @@
+---
+title: Code Splitting
+description: Split your code into multiple bundles for faster page loads and better caching
+---
+
+Code splitting improves performance by loading only the code you need, when you need it. Learn dynamic imports, vendor splitting, and optimization strategies.
+
+## Why Code Splitting?
+
+Code splitting provides several benefits:
+- Smaller initial bundle size
+- Faster page loads
+- Better caching
+- Load code on demand
+
+## Entry Points
+
+The simplest code splitting method uses multiple entry points:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    app: './src/app.js',
+    admin: './src/admin.js'
+  },
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  },
+  optimization: {
+    chunkIds: 'named'
+  }
+};
+```
+
+<Note>
+  This approach has limitations: if both entries share modules, they'll be duplicated unless you configure `splitChunks`.
+</Note>
+
+## SplitChunksPlugin
+
+Webpack's built-in plugin extracts common dependencies into shared chunks.
+
+### Basic Configuration
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    pageA: './src/pageA.js',
+    pageB: './src/pageB.js'
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all'
+    }
+  }
+};
+```
+
+### Vendor Chunk
+
+Separate vendor code from your application:
+
+```javascript webpack.config.js
+module.exports = {
+  optimization: {
+    splitChunks: {
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+          priority: 10
+        }
+      }
+    }
+  }
+};
+```
+
+<Tip>
+  Vendor code changes less frequently than your application code, making it ideal for long-term caching.
+</Tip>
+
+### Common Chunks
+
+Extract code shared between entry points:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    pageA: './pageA',
+    pageB: './pageB'
+  },
+  optimization: {
+    splitChunks: {
+      cacheGroups: {
+        commons: {
+          name: 'commons',
+          chunks: 'initial',
+          minChunks: 2,
+          minSize: 0
+        }
+      }
+    },
+    chunkIds: 'named'
+  }
+};
+```
+
+## Dynamic Imports
+
+Load modules on demand using `import()` syntax:
+
+### Basic Dynamic Import
+
+```javascript src/index.js
+function loadComponent() {
+  import('./component')
+    .then(module => {
+      const component = module.default;
+      document.body.appendChild(component());
+    })
+    .catch(err => console.error('Error loading component:', err));
+}
+
+button.addEventListener('click', loadComponent);
+```
+
+### Async/Await Syntax
+
+```javascript src/index.js
+async function loadComponent() {
+  try {
+    const module = await import('./component');
+    const component = module.default;
+    document.body.appendChild(component());
+  } catch (err) {
+    console.error('Error loading component:', err);
+  }
+}
+
+button.addEventListener('click', loadComponent);
+```
+
+### Named Chunks
+
+Give meaningful names to dynamic chunks:
+
+```javascript src/index.js
+function loadPage(pageName) {
+  import(
+    /* webpackChunkName: "[request]" */
+    `./pages/${pageName}`
+  ).then(module => {
+    module.default();
+  });
+}
+
+loadPage('about');
+// Creates: about.chunk.js
+```
+
+<CodeGroup>
+```javascript Magic Comments
+// Custom chunk name
+import(/* webpackChunkName: "my-chunk" */ './module');
+
+// Prefetch (load during idle time)
+import(/* webpackPrefetch: true */ './component');
+
+// Preload (load in parallel with parent)
+import(/* webpackPreload: true */ './critical');
+
+// Multiple comments
+import(
+  /* webpackChunkName: "admin" */
+  /* webpackPrefetch: true */
+  './admin'
+);
+```
+
+```javascript Dynamic Chunk Names
+// Use variables in chunk names
+import(
+  /* webpackChunkName: "page-[request]" */
+  `./pages/${page}`
+);
+```
+</CodeGroup>
+
+## Prefetching and Preloading
+
+### Prefetch
+
+Load resources during idle time:
+
+```javascript
+import(/* webpackPrefetch: true */ './future-module');
+```
+
+Generates:
+```html
+<link rel="prefetch" href="future-module.chunk.js">
+```
+
+### Preload
+
+Load resources in parallel with the parent chunk:
+
+```javascript
+import(/* webpackPreload: true */ './critical-module');
+```
+
+Generates:
+```html
+<link rel="preload" href="critical-module.chunk.js">
+```
+
+<Note>
+  **Prefetch** loads during idle time for future navigation. **Preload** loads immediately in parallel for current page.
+</Note>
+
+## Advanced Split Chunks Configuration
+
+<CodeGroup>
+```javascript Multiple Cache Groups
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        },
+        common: {
+          minChunks: 2,
+          priority: 5,
+          reuseExistingChunk: true
+        },
+        react: {
+          test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+          name: 'react',
+          priority: 20
+        }
+      }
+    }
+  }
+};
+```
+
+```javascript Size-Based Splitting
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      minSize: 20000,
+      maxSize: 244000,
+      minChunks: 1,
+      maxAsyncRequests: 30,
+      maxInitialRequests: 30
+    }
+  }
+};
+```
+
+```javascript Custom Splitting Logic
+module.exports = {
+  optimization: {
+    splitChunks: {
+      cacheGroups: {
+        utilities: {
+          test: /[\\/]src[\\/]utils[\\/]/,
+          name: 'utilities',
+          chunks: 'all',
+          priority: 5
+        },
+        default: false,
+        vendors: false
+      }
+    }
+  }
+};
+```
+</CodeGroup>
+
+## Lazy Loading Components
+
+Real-world example with React:
+
+```javascript src/App.js
+import React, { Suspense, lazy } from 'react';
+
+const Dashboard = lazy(() => import(
+  /* webpackChunkName: "dashboard" */
+  /* webpackPrefetch: true */
+  './Dashboard'
+));
+
+const Settings = lazy(() => import(
+  /* webpackChunkName: "settings" */
+  './Settings'
+));
+
+function App() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Router>
+        <Route path="/dashboard" component={Dashboard} />
+        <Route path="/settings" component={Settings} />
+      </Router>
+    </Suspense>
+  );
+}
+```
+
+## Depend On
+
+Share modules between chunks using `dependOn`:
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    app: {
+      import: './app.js',
+      dependOn: 'shared'
+    },
+    admin: {
+      import: './admin.js',
+      dependOn: 'shared'
+    },
+    shared: ['react', 'react-dom', 'lodash']
+  },
+  optimization: {
+    runtimeChunk: 'single'
+  }
+};
+```
+
+<Note>
+  The `shared` entry contains dependencies used by multiple entry points.
+</Note>
+
+## Bundle Analysis
+
+Analyze your chunks to optimize splitting:
+
+<Steps>
+  <Step title="Install webpack-bundle-analyzer">
+    ```bash
+    npm install --save-dev webpack-bundle-analyzer
+    ```
+  </Step>
+
+  <Step title="Add to webpack config">
+    ```javascript webpack.config.js
+    const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+    
+    module.exports = {
+      plugins: [
+        new BundleAnalyzerPlugin()
+      ]
+    };
+    ```
+  </Step>
+
+  <Step title="Run build">
+    ```bash
+    npm run build
+    ```
+    
+    A browser window opens with a visualization of your bundles.
+  </Step>
+</Steps>
+
+## Complete Example
+
+Production-ready code splitting configuration:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  entry: {
+    main: './src/index.js'
+  },
+  output: {
+    filename: '[name].[contenthash].js',
+    chunkFilename: '[name].[contenthash].chunk.js',
+    path: path.resolve(__dirname, 'dist'),
+    clean: true
+  },
+  optimization: {
+    moduleIds: 'deterministic',
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      maxInitialRequests: 25,
+      maxAsyncRequests: 25,
+      cacheGroups: {
+        defaultVendors: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10,
+          reuseExistingChunk: true
+        },
+        react: {
+          test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+          name: 'react',
+          priority: 20,
+          reuseExistingChunk: true
+        },
+        common: {
+          minChunks: 2,
+          priority: 5,
+          reuseExistingChunk: true,
+          enforce: true
+        }
+      }
+    }
+  }
+};
+```
+
+<Tip>
+  Start with `chunks: 'all'` and adjust based on bundle analysis. Monitor initial bundle size and number of requests.
+</Tip>

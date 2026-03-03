@@ -1,0 +1,278 @@
+---
+title: "Introduction to webpack"
+description: "A powerful module bundler for modern JavaScript applications"
+---
+
+<img
+  className="block dark:hidden"
+  src="https://webpack.js.org/assets/icon-square-big.svg"
+  alt="webpack Logo"
+  width="200"
+/>
+<img
+  className="hidden dark:block"
+  src="https://webpack.js.org/assets/icon-square-big.svg"
+  alt="webpack Logo"
+  width="200"
+/>
+
+## What is webpack?
+
+Webpack is a **static module bundler** for modern JavaScript applications. When webpack processes your application, it internally builds a dependency graph from one or more entry points and then combines every module your project needs into one or more bundles, which are static assets to serve your content from.
+
+<Note>
+Webpack supports all browsers that are ES5-compliant (IE8 and below are not supported). For older browsers, you'll need to load a polyfill before using `import()` and `require.ensure()`.
+</Note>
+
+## Why webpack?
+
+Webpack offers several compelling advantages for modern web development:
+
+<CardGroup cols={2}>
+  <Card title="Universal Module Support" icon="puzzle-piece">
+    Bundles ES Modules, CommonJS, and AMD modules seamlessly — even when combined in the same project.
+  </Card>
+  
+  <Card title="Code Splitting" icon="scissors">
+    Split your code into multiple bundles that can be loaded on demand, reducing initial load time.
+  </Card>
+  
+  <Card title="Powerful Plugin System" icon="plug">
+    Highly modular plugin interface allows you to extend webpack to do whatever your application requires.
+  </Card>
+  
+  <Card title="Asset Management" icon="images">
+    Loaders preprocess files during compilation — transform TypeScript to JavaScript, images to Base64, and more.
+  </Card>
+  
+  <Card title="Performance Optimization" icon="gauge-high">
+    Advanced optimizations like tree shaking, minification, and scope hoisting reduce bundle sizes.
+  </Card>
+  
+  <Card title="Developer Experience" icon="code">
+    Hot Module Replacement (HMR), source maps, and watch mode provide a fast development workflow.
+  </Card>
+</CardGroup>
+
+## Core Concepts
+
+Understanding these fundamental concepts will help you get the most out of webpack:
+
+<Steps>
+  <Step title="Entry Points">
+    The entry point tells webpack where to start building its internal dependency graph. Webpack will figure out which modules and libraries that entry point depends on.
+    
+    ```javascript
+    module.exports = {
+      entry: './src/index.js'
+    };
+    ```
+  </Step>
+  
+  <Step title="Output">
+    The output property tells webpack where to emit the bundles it creates and how to name these files.
+    
+    ```javascript
+    const path = require('path');
+    
+    module.exports = {
+      output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'bundle.js'
+      }
+    };
+    ```
+  </Step>
+  
+  <Step title="Loaders">
+    Webpack only understands JavaScript and JSON files. Loaders allow webpack to process other types of files and convert them into valid modules.
+    
+    ```javascript
+    module.exports = {
+      module: {
+        rules: [
+          { test: /\.css$/, use: ['style-loader', 'css-loader'] },
+          { test: /\.(png|svg|jpg)$/, type: 'asset/resource' }
+        ]
+      }
+    };
+    ```
+  </Step>
+  
+  <Step title="Plugins">
+    Plugins can be leveraged to perform a wider range of tasks like bundle optimization, asset management, and injection of environment variables.
+    
+    ```javascript
+    const HtmlWebpackPlugin = require('html-webpack-plugin');
+    
+    module.exports = {
+      plugins: [
+        new HtmlWebpackPlugin({ template: './src/index.html' })
+      ]
+    };
+    ```
+  </Step>
+  
+  <Step title="Mode">
+    By setting the mode parameter to development, production, or none, you enable webpack's built-in optimizations.
+    
+    ```javascript
+    module.exports = {
+      mode: 'production'
+    };
+    ```
+  </Step>
+</Steps>
+
+## Quick Links
+
+Get started with webpack or dive deeper into specific topics:
+
+<CardGroup cols={2}>
+  <Card
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install webpack and set up your development environment.
+  </Card>
+  
+  <Card
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Build your first webpack project in minutes.
+  </Card>
+  
+  <Card
+    title="Core Concepts"
+    icon="book"
+    href="/concepts/entry-points"
+  >
+    Deep dive into webpack's fundamental concepts.
+  </Card>
+  
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/overview"
+  >
+    Learn how to configure webpack for your needs.
+  </Card>
+  
+  <Card
+    title="Guides"
+    icon="map"
+    href="/guides/getting-started"
+  >
+    Step-by-step guides for common webpack tasks.
+  </Card>
+  
+  <Card
+    title="API Reference"
+    icon="terminal"
+    href="/api/compiler"
+  >
+    Complete API documentation for webpack.
+  </Card>
+</CardGroup>
+
+## Module Formats
+
+Webpack supports ES2015+, CommonJS, and AMD modules **out of the box**. It performs intelligent static analysis on the AST of your code and even has an evaluation engine to evaluate simple expressions.
+
+<CodeGroup>
+```javascript ES Modules
+// Importing
+import { add } from './math';
+import * as math from './math';
+
+// Exporting
+export function add(a, b) {
+  return a + b;
+}
+export default function() { }
+```
+
+```javascript CommonJS
+// Importing
+const add = require('./math').add;
+const math = require('./math');
+
+// Exporting
+module.exports = {
+  add: function(a, b) {
+    return a + b;
+  }
+};
+```
+
+```javascript AMD
+// Importing
+define(['./math'], function(math) {
+  return math.add(1, 2);
+});
+
+// Exporting
+define([], function() {
+  return {
+    add: function(a, b) {
+      return a + b;
+    }
+  };
+});
+```
+</CodeGroup>
+
+## Performance
+
+Webpack uses **async I/O** and has **multiple caching levels**, making it incredibly fast on incremental compilations. Whether you're working on a small project or a massive application, webpack's performance optimizations ensure quick build times.
+
+<Tip>
+Webpack's persistent caching significantly speeds up builds. Enable it in your configuration:
+
+```javascript
+module.exports = {
+  cache: {
+    type: 'filesystem'
+  }
+};
+```
+</Tip>
+
+## Browser Compatibility
+
+Webpack supports all browsers that are **ES5-compliant** (IE8 and below are not supported). Webpack also needs `Promise` for `import()` and `require.ensure()`. If you want to support older browsers, you will need to load a polyfill before using these expressions.
+
+## Community & Support
+
+<CardGroup cols={3}>
+  <Card title="GitHub" icon="github" href="https://github.com/webpack/webpack">
+    Star us on GitHub and contribute to the project.
+  </Card>
+  
+  <Card title="Discord" icon="discord" href="https://discord.gg/5sxFZPdx2k">
+    Join our Discord community for real-time help.
+  </Card>
+  
+  <Card title="Stack Overflow" icon="stack-overflow" href="https://stackoverflow.com/questions/tagged/webpack">
+    Get answers to your webpack questions.
+  </Card>
+</CardGroup>
+
+## What's Next?
+
+<Steps>
+  <Step title="Install webpack">
+    Follow the [installation guide](/installation) to set up webpack in your project.
+  </Step>
+  
+  <Step title="Build your first bundle">
+    Complete the [quickstart tutorial](/quickstart) to create your first webpack bundle.
+  </Step>
+  
+  <Step title="Explore the documentation">
+    Read through the [core concepts](/concepts/entry-points) and [guides](/guides/getting-started) to master webpack.
+  </Step>
+</Steps>

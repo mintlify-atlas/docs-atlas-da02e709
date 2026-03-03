@@ -1,0 +1,294 @@
+---
+title: Entry and Context
+description: Configure entry points and base directory for module resolution in webpack
+---
+
+The `entry` property defines the starting point(s) of your application bundle, and `context` sets the base directory for resolving entry points and loaders.
+
+## Entry
+
+<ParamField path="entry" type="string | string[] | object | function">
+  The entry point(s) of the compilation. webpack starts building from these modules.
+  
+  **Default:** `{ main: './src' }` (when not specified)
+</ParamField>
+
+### Single Entry (String)
+
+```javascript
+module.exports = {
+  entry: './src/index.js'
+};
+```
+
+### Array Entry
+
+Multiple files bundled together into a single chunk:
+
+```javascript
+module.exports = {
+  entry: ['./src/polyfills.js', './src/index.js']
+};
+```
+
+### Object Syntax
+
+Define multiple entry points with custom names:
+
+```javascript
+module.exports = {
+  entry: {
+    app: './src/app.js',
+    admin: './src/admin.js',
+    vendor: './src/vendor.js'
+  }
+};
+```
+
+### Entry Descriptor
+
+For advanced configuration, use entry descriptor objects:
+
+```javascript
+module.exports = {
+  entry: {
+    main: {
+      import: './src/app.js',
+      dependOn: 'vendor',
+      filename: '[name].bundle.js'
+    },
+    vendor: {
+      import: ['react', 'react-dom'],
+      filename: 'vendor.bundle.js'
+    }
+  }
+};
+```
+
+## Entry Descriptor Options
+
+<ParamField path="entry.[name].import" type="string | string[]" required>
+  Module(s) that are loaded upon startup.
+</ParamField>
+
+<ParamField path="entry.[name].dependOn" type="string | string[]">
+  The entrypoints that the current entrypoint depends on. They must be loaded before this entrypoint.
+  
+  ```javascript
+  entry: {
+    app: {
+      import: './app.js',
+      dependOn: ['react-vendors', 'utils']
+    },
+    'react-vendors': ['react', 'react-dom'],
+    utils: './utils.js'
+  }
+  ```
+</ParamField>
+
+<ParamField path="entry.[name].filename" type="string | function">
+  Specifies the filename of the output file on disk.
+  
+  **Default:** Inherits from `output.filename`
+  
+  ```javascript
+  entry: {
+    app: {
+      import: './app.js',
+      filename: 'pages/[name].js'
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="entry.[name].layer" type="string | null">
+  Specifies the layer in which modules of this entrypoint are placed.
+  
+  ```javascript
+  entry: {
+    app: {
+      import: './app.js',
+      layer: 'app-layer'
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="entry.[name].runtime" type="string | false">
+  The name of the runtime chunk. If set, a runtime chunk with this name is created or an existing entrypoint is used as runtime.
+  
+  ```javascript
+  entry: {
+    app: {
+      import: './app.js',
+      runtime: 'app-runtime'
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="entry.[name].publicPath" type="string | function">
+  The public URL address of the output files when referenced in a browser.
+  
+  ```javascript
+  entry: {
+    app: {
+      import: './app.js',
+      publicPath: 'https://cdn.example.com/'
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="entry.[name].chunkLoading" type="string | false">
+  The method of loading chunks. Available methods: `'jsonp'`, `'import'`, `'importScripts'`, `'require'`, `'async-node'`, or `false` to disable.
+  
+  **Default:** Depends on `target` and `output.chunkFormat`
+</ParamField>
+
+<ParamField path="entry.[name].asyncChunks" type="boolean">
+  Enable/disable creating async chunks that are loaded on demand.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="entry.[name].wasmLoading" type="string | false">
+  The method of loading WebAssembly modules. Options: `'fetch'`, `'async-node'`, or `false`.
+  
+  **Default:** Depends on `target`
+</ParamField>
+
+<ParamField path="entry.[name].library" type="object">
+  Options for library output for this entry point.
+  
+  ```javascript
+  entry: {
+    myLib: {
+      import: './lib.js',
+      library: {
+        name: 'MyLibrary',
+        type: 'umd'
+      }
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="entry.[name].baseUri" type="string">
+  Base URI for this entry. Used for loading on-demand chunks and other resources.
+</ParamField>
+
+## Dynamic Entry
+
+Return a promise or use a function to dynamically determine entry points:
+
+```javascript
+module.exports = {
+  entry: () => './src/index.js'
+};
+```
+
+```javascript
+module.exports = {
+  entry: () => new Promise((resolve) => {
+    setTimeout(() => {
+      resolve('./src/index.js');
+    }, 1000);
+  })
+};
+```
+
+```javascript
+module.exports = {
+  entry: () => ({
+    app: './src/app.js',
+    admin: './src/admin.js'
+  })
+};
+```
+
+## Context
+
+<ParamField path="context" type="string">
+  The base directory (absolute path) for resolving the `entry` option. If `output.pathinfo` is set, the included pathinfo is shortened to this directory.
+  
+  **Default:** `process.cwd()` (current working directory)
+</ParamField>
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  context: path.resolve(__dirname, 'app'),
+  entry: './entry.js' // resolves to <context>/entry.js
+};
+```
+
+<Warning>
+  The `context` must be an **absolute path**. Use `path.resolve()` or `path.join(__dirname, ...)` to ensure the path is absolute.
+</Warning>
+
+## Common Patterns
+
+### Multi-Page Application
+
+```javascript
+module.exports = {
+  entry: {
+    home: './src/pages/home.js',
+    about: './src/pages/about.js',
+    contact: './src/pages/contact.js'
+  },
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+### Code Splitting with Shared Dependencies
+
+```javascript
+module.exports = {
+  entry: {
+    main: {
+      import: './src/app.js',
+      dependOn: 'shared'
+    },
+    admin: {
+      import: './src/admin.js',
+      dependOn: 'shared'
+    },
+    shared: ['react', 'react-dom', 'lodash']
+  }
+};
+```
+
+### Separate Runtime Chunk
+
+```javascript
+module.exports = {
+  entry: {
+    app: {
+      import: './src/app.js',
+      runtime: 'runtime'
+    },
+    admin: {
+      import: './src/admin.js',
+      runtime: 'runtime'
+    }
+  }
+};
+```
+
+## Source Code Reference
+
+The entry configuration defaults are defined in:
+- `lib/config/defaults.js:318-326` - Entry import defaults
+- `lib/EntryPlugin.js` - Entry plugin implementation
+
+## See Also
+
+- [Output Configuration](/configuration/output)
+- [Optimization Configuration](/configuration/optimization)
+- [Webpack Entry Points Guide](https://webpack.js.org/concepts/entry-points/)

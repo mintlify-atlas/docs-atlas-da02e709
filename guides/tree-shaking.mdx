@@ -1,0 +1,458 @@
+---
+title: Tree Shaking
+description: Eliminate dead code from your bundles with webpack's tree shaking optimization
+---
+
+Tree shaking removes unused code from your final bundle. Learn how to enable and optimize tree shaking for smaller, faster applications.
+
+## What is Tree Shaking?
+
+Tree shaking eliminates unused exports from your modules. It relies on ES6 module syntax (`import`/`export`) to determine which code is actually used.
+
+## Prerequisites
+
+Tree shaking requires:
+- ES6 module syntax (`import`/`export`)
+- Production mode or specific optimizations
+- Side-effect-free modules
+
+## Basic Setup
+
+Enable tree shaking in production mode:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  optimization: {
+    usedExports: true,
+    concatenateModules: true,
+    minimize: true
+  }
+};
+```
+
+<Note>
+  `mode: 'production'` automatically enables these optimizations. You only need to configure them explicitly in development or for custom setups.
+</Note>
+
+## ES6 Module Syntax
+
+Tree shaking only works with ES6 modules:
+
+<CodeGroup>
+```javascript ES6 Modules (Tree Shakeable)
+// math.js
+export function add(a, b) {
+  return a + b;
+}
+
+export function multiply(a, b) {
+  return a * b;
+}
+
+export function subtract(a, b) {
+  return a - b;
+}
+
+// index.js
+import { add } from './math';
+
+console.log(add(1, 2));
+// subtract and multiply are removed
+```
+
+```javascript CommonJS (Not Tree Shakeable)
+// math.js
+module.exports = {
+  add: (a, b) => a + b,
+  multiply: (a, b) => a * b,
+  subtract: (a, b) => a - b
+};
+
+// index.js
+const { add } = require('./math');
+
+console.log(add(1, 2));
+// All functions are included
+```
+</CodeGroup>
+
+<Tip>
+  Use `import` and `export` instead of `require` and `module.exports` for tree shaking to work.
+</Tip>
+
+## Side Effects
+
+Mark side-effect-free modules in `package.json`:
+
+<CodeGroup>
+```json No Side Effects
+{
+  "name": "my-library",
+  "sideEffects": false
+}
+```
+
+```json Specific Side Effects
+{
+  "name": "my-library",
+  "sideEffects": [
+    "*.css",
+    "*.scss",
+    "src/polyfills.js"
+  ]
+}
+```
+
+```json Glob Patterns
+{
+  "name": "my-library",
+  "sideEffects": [
+    "**/*.css",
+    "**/polyfills/**"
+  ]
+}
+```
+</CodeGroup>
+
+<Note>
+  Side effects are code that affects the global scope when imported (e.g., polyfills, CSS imports). Mark them explicitly to prevent incorrect removal.
+</Note>
+
+## Optimizing Library Code
+
+Configure webpack to shake third-party libraries:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  optimization: {
+    usedExports: true,
+    providedExports: true,
+    concatenateModules: true
+  }
+};
+```
+
+## Scope Hoisting
+
+Scope hoisting (Module Concatenation) improves tree shaking:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  optimization: {
+    concatenateModules: true,
+    usedExports: true
+  }
+};
+```
+
+### Example
+
+<CodeGroup>
+```javascript Source Code
+// math.js
+export function add(a, b) {
+  return a + b;
+}
+
+export function multiply(a, b) {
+  return a * b;
+}
+
+// index.js
+import { add } from './math';
+
+add(1, 2);
+```
+
+```javascript Without Scope Hoisting
+// Separate module wrappers
+__webpack_modules__["./math.js"] = function() {
+  // ...
+};
+
+__webpack_modules__["./index.js"] = function() {
+  // ...
+};
+```
+
+```javascript With Scope Hoisting
+// Concatenated into single scope
+function add(a, b) {
+  return a + b;
+}
+
+add(1, 2);
+// multiply is completely removed
+```
+</CodeGroup>
+
+<Tip>
+  Scope hoisting reduces bundle size and improves runtime performance by flattening module structure.
+</Tip>
+
+## Development Mode
+
+Enable tree shaking warnings in development:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'development',
+  optimization: {
+    usedExports: true,
+    minimize: false,
+    concatenateModules: false
+  }
+};
+```
+
+Webpack marks unused exports with comments:
+
+```javascript
+/* unused harmony export multiply */
+/* unused harmony export subtract */
+```
+
+## Real-World Example
+
+<Steps>
+  <Step title="Create utility modules">
+    ```javascript src/utils/math.js
+    export function add(a, b) {
+      return a + b;
+    }
+    
+    export function multiply(a, b) {
+      return a * b;
+    }
+    
+    export function subtract(a, b) {
+      return a - b;
+    }
+    ```
+  </Step>
+
+  <Step title="Use only some exports">
+    ```javascript src/index.js
+    import { add } from './utils/math';
+    
+    console.log(add(1, 2));
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    ```javascript webpack.config.js
+    module.exports = {
+      mode: 'production',
+      optimization: {
+        usedExports: true,
+        concatenateModules: true,
+        minimize: true
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Build and verify">
+    ```bash
+    npm run build
+    ```
+    
+    The bundle contains only `add`, not `multiply` or `subtract`.
+  </Step>
+</Steps>
+
+## CommonJS Tree Shaking
+
+Webpack 5 has limited support for CommonJS tree shaking:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  optimization: {
+    usedExports: true,
+    minimize: true
+  }
+};
+```
+
+```javascript example.js
+const math = require('./math');
+
+// Webpack can detect unused properties
+const { add } = math;
+add(1, 2);
+```
+
+<Note>
+  CommonJS tree shaking is limited. Use ES6 modules for best results.
+</Note>
+
+## Library Development
+
+Configure your library for tree shaking:
+
+```json package.json
+{
+  "name": "my-library",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js"
+    }
+  }
+}
+```
+
+<CodeGroup>
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  output: {
+    filename: 'index.esm.js',
+    library: {
+      type: 'module'
+    }
+  },
+  experiments: {
+    outputModule: true
+  },
+  optimization: {
+    usedExports: true,
+    concatenateModules: true
+  }
+};
+```
+
+```javascript Source Structure
+// src/index.js
+export { add, subtract } from './math';
+export { formatDate } from './date';
+export { default as Component } from './Component';
+
+// Consumers can tree shake:
+import { add } from 'my-library';
+```
+</CodeGroup>
+
+## Analyzing Results
+
+Verify tree shaking with webpack stats:
+
+```bash
+webpack --mode=production --json > stats.json
+```
+
+Analyze with webpack-bundle-analyzer:
+
+```javascript webpack.config.js
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+
+module.exports = {
+  mode: 'production',
+  plugins: [
+    new BundleAnalyzerPlugin()
+  ]
+};
+```
+
+## Common Issues
+
+### Babel Configuration
+
+Ensure Babel doesn't transform ES6 modules:
+
+```json .babelrc
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "modules": false
+      }
+    ]
+  ]
+}
+```
+
+<Note>
+  Setting `"modules": false` prevents Babel from converting ES6 modules to CommonJS.
+</Note>
+
+### TypeScript
+
+Configure TypeScript to preserve ES6 modules:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "target": "es5"
+  }
+}
+```
+
+## Complete Configuration
+
+Production build optimized for tree shaking:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  
+  output: {
+    filename: '[name].[contenthash].js',
+    path: path.resolve(__dirname, 'dist'),
+    clean: true
+  },
+  
+  optimization: {
+    usedExports: true,
+    providedExports: true,
+    concatenateModules: true,
+    minimize: true,
+    moduleIds: 'deterministic',
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        }
+      }
+    }
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              ['@babel/preset-env', { modules: false }]
+            ]
+          }
+        }
+      }
+    ]
+  }
+};
+```
+
+<Tip>
+  Combine tree shaking with code splitting and caching for maximum optimization.
+</Tip>

@@ -1,0 +1,779 @@
+---
+title: Compilation Hooks
+description: Reference for all Compilation hooks available to webpack plugins
+---
+
+The `Compilation` module is used by the `Compiler` to create new compilations (or builds). A compilation instance has access to all modules and their dependencies. It orchestrates the application modules, creates the chunk graph, and generates the final assets.
+
+## Overview
+
+Compilation hooks are exposed on the `compilation.hooks` object. Most plugins tap into the `compiler.hooks.compilation` hook to access compilation hooks.
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+  compilation.hooks.optimize.tap('MyPlugin', () => {
+    console.log('Assets are being optimized.');
+  });
+});
+```
+
+## Module Hooks
+
+### buildModule
+
+<ParamField path="buildModule" type="SyncHook<[Module]>">
+  Called before a module is built.
+</ParamField>
+
+**Parameters:**
+- `module` (Module) - The module being built
+
+**Example:**
+```javascript
+compilation.hooks.buildModule.tap('MyPlugin', (module) => {
+  console.log('Building:', module.resource);
+});
+```
+
+---
+
+### rebuildModule
+
+<ParamField path="rebuildModule" type="SyncHook<[Module]>">
+  Called when a module is being rebuilt.
+</ParamField>
+
+**Parameters:**
+- `module` (Module) - The module being rebuilt
+
+---
+
+### failedModule
+
+<ParamField path="failedModule" type="SyncHook<[Module, WebpackError]>">
+  Called when a module build has failed.
+</ParamField>
+
+**Parameters:**
+- `module` (Module) - The module that failed
+- `error` (WebpackError) - The error that occurred
+
+---
+
+### succeedModule
+
+<ParamField path="succeedModule" type="SyncHook<[Module]>">
+  Called when a module build has succeeded.
+</ParamField>
+
+**Parameters:**
+- `module` (Module) - The module that succeeded
+
+---
+
+### stillValidModule
+
+<ParamField path="stillValidModule" type="SyncHook<[Module]>">
+  Called when a module is still valid (cached) and doesn't need to be rebuilt.
+</ParamField>
+
+**Parameters:**
+- `module` (Module) - The valid module
+
+---
+
+### finishModules
+
+<ParamField path="finishModules" type="AsyncSeriesHook<[Iterable\<Module\>]>">
+  Called when all modules have been built without errors.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules in the compilation
+
+---
+
+### finishRebuildingModule
+
+<ParamField path="finishRebuildingModule" type="AsyncSeriesHook<[Module]>">
+  Called when a module has finished rebuilding.
+</ParamField>
+
+**Parameters:**
+- `module` (Module) - The rebuilt module
+
+## Entry Hooks
+
+### addEntry
+
+<ParamField path="addEntry" type="SyncHook<[Dependency, EntryOptions]>">
+  Called when an entry is added to the compilation.
+</ParamField>
+
+**Parameters:**
+- `entry` (Dependency) - The entry dependency
+- `options` (EntryOptions) - Entry options including name, runtime, etc.
+
+---
+
+### failedEntry
+
+<ParamField path="failedEntry" type="SyncHook<[Dependency, EntryOptions, Error]>">
+  Called when an entry dependency fails to load.
+</ParamField>
+
+**Parameters:**
+- `entry` (Dependency) - The entry dependency
+- `options` (EntryOptions) - Entry options
+- `error` (Error) - The error that occurred
+
+---
+
+### succeedEntry
+
+<ParamField path="succeedEntry" type="SyncHook<[Dependency, EntryOptions, Module]>">
+  Called when an entry dependency has been successfully created.
+</ParamField>
+
+**Parameters:**
+- `entry` (Dependency) - The entry dependency
+- `options` (EntryOptions) - Entry options
+- `module` (Module) - The created module
+
+## Sealing Hooks
+
+The sealing phase happens after all modules have been built and before chunks are created.
+
+### seal
+
+<ParamField path="seal" type="SyncHook<[]>">
+  Called when the compilation starts sealing. This is where the chunk graph is created.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### unseal
+
+<ParamField path="unseal" type="SyncHook<[]>">
+  Called when the compilation is unsealed (before additional passes).
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### beforeChunks
+
+<ParamField path="beforeChunks" type="SyncHook<[]>">
+  Called before chunks are created from the module graph.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### afterChunks
+
+<ParamField path="afterChunks" type="SyncHook<[Iterable\<Chunk\>]>">
+  Called after chunks have been created. This hook is useful to inspect, analyze, and/or modify the chunk graph.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks in the compilation
+
+**Example:**
+```javascript
+compilation.hooks.afterChunks.tap('MyPlugin', (chunks) => {
+  for (const chunk of chunks) {
+    console.log('Chunk:', chunk.name, 'Modules:', chunk.getNumberOfModules());
+  }
+});
+```
+
+## Optimization Hooks
+
+### optimize
+
+<ParamField path="optimize" type="SyncHook<[]>">
+  Called at the beginning of the optimization phase.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### optimizeDependencies
+
+<ParamField path="optimizeDependencies" type="SyncBailHook<[Iterable\<Module\>], boolean | void>">
+  Called to optimize dependencies. Return `true` to signal that the hook has made changes.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### afterOptimizeDependencies
+
+<ParamField path="afterOptimizeDependencies" type="SyncHook<[Iterable\<Module\>]>">
+  Called after dependencies have been optimized.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### optimizeModules
+
+<ParamField path="optimizeModules" type="SyncBailHook<[Iterable\<Module\>], boolean | void>">
+  Called to optimize modules.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### afterOptimizeModules
+
+<ParamField path="afterOptimizeModules" type="SyncHook<[Iterable\<Module\>]>">
+  Called after modules have been optimized.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### optimizeChunks
+
+<ParamField path="optimizeChunks" type="SyncBailHook<[Iterable\<Chunk\>, ChunkGroup[]], boolean | void>">
+  Called to optimize chunks. Return `true` to signal that changes were made.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `chunkGroups` (ChunkGroup[]) - All chunk groups
+
+---
+
+### afterOptimizeChunks
+
+<ParamField path="afterOptimizeChunks" type="SyncHook<[Iterable\<Chunk\>, ChunkGroup[]]>">
+  Called after chunks have been optimized.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `chunkGroups` (ChunkGroup[]) - All chunk groups
+
+---
+
+### optimizeTree
+
+<ParamField path="optimizeTree" type="AsyncSeriesHook<[Iterable\<Chunk\>, Iterable\<Module\>]>">
+  Called to optimize the module and chunk tree asynchronously.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### afterOptimizeTree
+
+<ParamField path="afterOptimizeTree" type="SyncHook<[Iterable\<Chunk\>, Iterable\<Module\>]>">
+  Called after the tree optimization.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### optimizeChunkModules
+
+<ParamField path="optimizeChunkModules" type="AsyncSeriesBailHook<[Iterable\<Chunk\>, Iterable\<Module\>], void>">
+  Called to optimize the module order in chunks.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### afterOptimizeChunkModules
+
+<ParamField path="afterOptimizeChunkModules" type="SyncHook<[Iterable\<Chunk\>, Iterable\<Module\>]>">
+  Called after chunk modules have been optimized.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `modules` (Iterable\<Module\>) - All modules
+
+## Module & Chunk IDs
+
+### reviveModules
+
+<ParamField path="reviveModules" type="SyncHook<[Iterable\<Module\>, Records]>">
+  Called to restore module info from records.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+- `records` (Records) - Records from previous compilation
+
+---
+
+### beforeModuleIds
+
+<ParamField path="beforeModuleIds" type="SyncHook<[Iterable\<Module\>]>">
+  Called before module IDs are assigned.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### moduleIds
+
+<ParamField path="moduleIds" type="SyncHook<[Iterable\<Module\>]>">
+  Called to assign IDs to modules.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### optimizeModuleIds
+
+<ParamField path="optimizeModuleIds" type="SyncHook<[Iterable\<Module\>]>">
+  Called to optimize module IDs.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### afterOptimizeModuleIds
+
+<ParamField path="afterOptimizeModuleIds" type="SyncHook<[Iterable\<Module\>]>">
+  Called after module IDs have been optimized.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+
+---
+
+### reviveChunks
+
+<ParamField path="reviveChunks" type="SyncHook<[Iterable\<Chunk\>, Records]>">
+  Called to restore chunk info from records.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `records` (Records) - Records from previous compilation
+
+---
+
+### beforeChunkIds
+
+<ParamField path="beforeChunkIds" type="SyncHook<[Iterable\<Chunk\>]>">
+  Called before chunk IDs are assigned.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+
+---
+
+### chunkIds
+
+<ParamField path="chunkIds" type="SyncHook<[Iterable\<Chunk\>]>">
+  Called to assign IDs to chunks.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+
+---
+
+### optimizeChunkIds
+
+<ParamField path="optimizeChunkIds" type="SyncHook<[Iterable\<Chunk\>]>">
+  Called to optimize chunk IDs.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+
+---
+
+### afterOptimizeChunkIds
+
+<ParamField path="afterOptimizeChunkIds" type="SyncHook<[Iterable\<Chunk\>]>">
+  Called after chunk IDs have been optimized.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+
+## Code Generation & Hashing
+
+### beforeCodeGeneration
+
+<ParamField path="beforeCodeGeneration" type="SyncHook<[]>">
+  Called before code generation begins.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### afterCodeGeneration
+
+<ParamField path="afterCodeGeneration" type="SyncHook<[]>">
+  Called after code generation is complete.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### beforeRuntimeRequirements
+
+<ParamField path="beforeRuntimeRequirements" type="SyncHook<[]>">
+  Called before runtime requirements are processed.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### afterRuntimeRequirements
+
+<ParamField path="afterRuntimeRequirements" type="SyncHook<[]>">
+  Called after runtime requirements have been processed.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### beforeHash
+
+<ParamField path="beforeHash" type="SyncHook<[]>">
+  Called before the compilation hash is created.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### afterHash
+
+<ParamField path="afterHash" type="SyncHook<[]>">
+  Called after the compilation hash has been created.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### chunkHash
+
+<ParamField path="chunkHash" type="SyncHook<[Chunk, Hash, ChunkHashContext]>">
+  Called to add content to the chunk hash.
+</ParamField>
+
+**Parameters:**
+- `chunk` (Chunk) - The chunk being hashed
+- `chunkHash` (Hash) - The hash object
+- `context` (ChunkHashContext) - Context with code generation results
+
+**Example:**
+```javascript
+compilation.hooks.chunkHash.tap('MyPlugin', (chunk, hash) => {
+  hash.update('my custom data');
+});
+```
+
+---
+
+### contentHash
+
+<ParamField path="contentHash" type="SyncHook<[Chunk]>">
+  Called to create the content hash for a chunk.
+</ParamField>
+
+**Parameters:**
+- `chunk` (Chunk) - The chunk
+
+---
+
+### fullHash
+
+<ParamField path="fullHash" type="SyncHook<[Hash]>">
+  Called to add content to the full hash.
+</ParamField>
+
+**Parameters:**
+- `hash` (Hash) - The hash object
+
+## Asset Processing
+
+### beforeModuleAssets
+
+<ParamField path="beforeModuleAssets" type="SyncHook<[]>">
+  Called before module assets are created.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### moduleAsset
+
+<ParamField path="moduleAsset" type="SyncHook<[Module, string]>">
+  Called when a module asset is created.
+</ParamField>
+
+**Parameters:**
+- `module` (Module) - The module
+- `filename` (string) - The asset filename
+
+---
+
+### shouldGenerateChunkAssets
+
+<ParamField path="shouldGenerateChunkAssets" type="SyncBailHook<[], boolean | void>">
+  Called to determine if chunk assets should be generated. Return `false` to prevent generation.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### beforeChunkAssets
+
+<ParamField path="beforeChunkAssets" type="SyncHook<[]>">
+  Called before chunk assets are created.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### chunkAsset
+
+<ParamField path="chunkAsset" type="SyncHook<[Chunk, string]>">
+  Called when a chunk asset is created.
+</ParamField>
+
+**Parameters:**
+- `chunk` (Chunk) - The chunk
+- `filename` (string) - The asset filename
+
+---
+
+### processAssets
+
+<ParamField path="processAssets" type="AsyncSeriesHook<[CompilationAssets]>">
+  Called to process assets. This is the main hook for asset optimization.
+</ParamField>
+
+**Parameters:**
+- `assets` (CompilationAssets) - All assets in the compilation
+
+**Stages:**
+- `PROCESS_ASSETS_STAGE_ADDITIONAL` - Add additional assets
+- `PROCESS_ASSETS_STAGE_PRE_PROCESS` - Basic preprocessing
+- `PROCESS_ASSETS_STAGE_DERIVED` - Derive new assets from existing
+- `PROCESS_ASSETS_STAGE_ADDITIONS` - Add additional sections to assets
+- `PROCESS_ASSETS_STAGE_OPTIMIZE` - Optimize existing assets
+- `PROCESS_ASSETS_STAGE_OPTIMIZE_COUNT` - Optimize asset count
+- `PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY` - Optimize compatibility
+- `PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE` - Optimize size
+- `PROCESS_ASSETS_STAGE_DEV_TOOLING` - Add development tooling
+- `PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE` - Optimize for inlining
+- `PROCESS_ASSETS_STAGE_SUMMARIZE` - Summarize list of assets
+- `PROCESS_ASSETS_STAGE_OPTIMIZE_HASH` - Optimize hashes
+- `PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER` - Optimize transfer
+- `PROCESS_ASSETS_STAGE_ANALYSE` - Analyze assets
+- `PROCESS_ASSETS_STAGE_REPORT` - Create reports
+
+**Example:**
+```javascript
+compilation.hooks.processAssets.tapAsync(
+  {
+    name: 'MyPlugin',
+    stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+  },
+  (assets, callback) => {
+    Object.keys(assets).forEach(filename => {
+      // Process each asset
+    });
+    callback();
+  }
+);
+```
+
+---
+
+### afterProcessAssets
+
+<ParamField path="afterProcessAssets" type="SyncHook<[CompilationAssets]>">
+  Called after assets have been processed.
+</ParamField>
+
+**Parameters:**
+- `assets` (CompilationAssets) - All assets
+
+---
+
+### processAdditionalAssets
+
+<ParamField path="processAdditionalAssets" type="AsyncSeriesHook<[CompilationAssets]>">
+  Called to process additional assets that were added during `processAssets`.
+</ParamField>
+
+**Parameters:**
+- `assets` (CompilationAssets) - Newly added assets
+
+## Record Hooks
+
+### record
+
+<ParamField path="record" type="SyncHook<[Compilation, Records]>">
+  Called to store information in records.
+</ParamField>
+
+**Parameters:**
+- `compilation` (Compilation) - The compilation
+- `records` (Records) - The records object
+
+---
+
+### recordModules
+
+<ParamField path="recordModules" type="SyncHook<[Iterable\<Module\>, Records]>">
+  Called to record module information.
+</ParamField>
+
+**Parameters:**
+- `modules` (Iterable\<Module\>) - All modules
+- `records` (Records) - The records object
+
+---
+
+### recordChunks
+
+<ParamField path="recordChunks" type="SyncHook<[Iterable\<Chunk\>, Records]>">
+  Called to record chunk information.
+</ParamField>
+
+**Parameters:**
+- `chunks` (Iterable\<Chunk\>) - All chunks
+- `records` (Records) - The records object
+
+---
+
+### recordHash
+
+<ParamField path="recordHash" type="SyncHook<[Records]>">
+  Called to record the compilation hash.
+</ParamField>
+
+**Parameters:**
+- `records` (Records) - The records object
+
+## Other Hooks
+
+### needAdditionalPass
+
+<ParamField path="needAdditionalPass" type="SyncBailHook<[], boolean | void>">
+  Called to determine if an additional compilation pass is needed. Return `true` to trigger another pass.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### afterSeal
+
+<ParamField path="afterSeal" type="AsyncSeriesHook<[]>">
+  Called after the compilation has been sealed.
+</ParamField>
+
+**Parameters:** None
+
+---
+
+### childCompiler
+
+<ParamField path="childCompiler" type="SyncHook<[Compiler, string, number]>">
+  Called when a child compiler is created.
+</ParamField>
+
+**Parameters:**
+- `childCompiler` (Compiler) - The child compiler
+- `compilerName` (string) - Name of the child compiler
+- `compilerIndex` (number) - Index of the child compiler
+
+---
+
+### log
+
+<ParamField path="log" type="SyncBailHook<[string, LogEntry], boolean | void>">
+  Called to log messages to compilation logging.
+</ParamField>
+
+**Parameters:**
+- `origin` (string) - Logger name
+- `logEntry` (LogEntry) - Log entry with type, args, time, trace
+
+## Usage Example
+
+```javascript
+class MyCompilationPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyCompilationPlugin', (compilation) => {
+      // Access module hooks
+      compilation.hooks.buildModule.tap('MyPlugin', (module) => {
+        console.log('Building:', module.resource);
+      });
+
+      // Access optimization hooks
+      compilation.hooks.optimizeChunks.tap('MyPlugin', (chunks) => {
+        for (const chunk of chunks) {
+          // Optimize chunks
+        }
+      });
+
+      // Process assets
+      compilation.hooks.processAssets.tapAsync(
+        {
+          name: 'MyPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+        },
+        (assets, callback) => {
+          // Modify assets
+          callback();
+        }
+      );
+    });
+  }
+}
+```

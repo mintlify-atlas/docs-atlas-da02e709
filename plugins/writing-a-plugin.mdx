@@ -1,0 +1,604 @@
+---
+title: Writing a Plugin
+description: Step-by-step guide to creating custom webpack plugins
+---
+
+## Getting Started
+
+A webpack plugin is a JavaScript class with an `apply` method. The webpack compiler calls this method, giving the plugin access to the entire compilation lifecycle through hooks.
+
+## Simple Plugin Example
+
+Here's a basic plugin that logs when the compilation is done:
+
+```javascript
+class HelloWorldPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('HelloWorldPlugin', (stats) => {
+      console.log('Hello World!');
+    });
+  }
+}
+
+module.exports = HelloWorldPlugin;
+```
+
+Using the plugin:
+
+```javascript
+// webpack.config.js
+const HelloWorldPlugin = require('./hello-world-plugin');
+
+module.exports = {
+  plugins: [
+    new HelloWorldPlugin()
+  ]
+};
+```
+
+## Plugin with Options
+
+Plugins should accept configuration options:
+
+```javascript
+class FileListPlugin {
+  constructor(options = {}) {
+    this.options = {
+      outputFile: 'filelist.md',
+      ...options
+    };
+  }
+  
+  apply(compiler) {
+    const pluginName = FileListPlugin.name;
+    const { outputFile } = this.options;
+    
+    compiler.hooks.emit.tapAsync(pluginName, (compilation, callback) => {
+      // Create a header
+      let fileList = '# Files Generated\n\n';
+      
+      // Loop through all compiled assets
+      for (const filename in compilation.assets) {
+        fileList += `- ${filename}\n`;
+      }
+      
+      // Insert this list as a new file asset
+      compilation.assets[outputFile] = {
+        source: () => fileList,
+        size: () => fileList.length
+      };
+      
+      callback();
+    });
+  }
+}
+
+module.exports = FileListPlugin;
+```
+
+## Async Plugin with Promises
+
+For async operations, use `tapPromise`:
+
+```javascript
+const { promisify } = require('util');
+const fs = require('fs');
+const readFile = promisify(fs.readFile);
+
+class TemplatePlugin {
+  constructor(options) {
+    this.options = options;
+  }
+  
+  apply(compiler) {
+    compiler.hooks.emit.tapPromise('TemplatePlugin', async (compilation) => {
+      // Read template file
+      const template = await readFile(this.options.template, 'utf8');
+      
+      // Process template with compilation data
+      const content = template
+        .replace('{{hash}}', compilation.hash)
+        .replace('{{files}}', Object.keys(compilation.assets).join(', '));
+      
+      // Add as new asset
+      compilation.assets['info.html'] = {
+        source: () => content,
+        size: () => content.length
+      };
+    });
+  }
+}
+
+module.exports = TemplatePlugin;
+```
+
+## Working with Compilation
+
+Access the compilation object to work with modules and assets:
+
+```javascript
+class AnalyzerPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('AnalyzerPlugin', (compilation) => {
+      // Hook into module processing
+      compilation.hooks.succeedModule.tap('AnalyzerPlugin', (module) => {
+        console.log(`Module built: ${module.resource}`);
+      });
+      
+      // Hook into asset processing
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'AnalyzerPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
+        },
+        (assets) => {
+          const stats = {};
+          
+          for (const [name, asset] of Object.entries(assets)) {
+            stats[name] = asset.size();
+          }
+          
+          console.log('Asset sizes:', stats);
+        }
+      );
+    });
+  }
+}
+```
+
+## Modifying Assets
+
+Use webpack-sources to modify assets:
+
+```javascript
+const { RawSource, ConcatSource } = require('webpack-sources');
+
+class CopyrightPlugin {
+  constructor(options) {
+    this.options = options;
+  }
+  
+  apply(compiler) {
+    compiler.hooks.compilation.tap('CopyrightPlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'CopyrightPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+        },
+        (assets) => {
+          const copyright = `/*! Copyright ${this.options.year} */\n`;
+          
+          // Add copyright to all .js files
+          for (const filename in assets) {
+            if (!filename.endsWith('.js')) continue;
+            
+            compilation.updateAsset(filename, (old) => {
+              return new ConcatSource(copyright, old);
+            });
+          }
+        }
+      );
+    });
+  }
+}
+```
+
+## Creating New Assets
+
+```javascript
+const { RawSource } = require('webpack-sources');
+
+class ManifestPlugin {
+  apply(compiler) {
+    compiler.hooks.emit.tapAsync('ManifestPlugin', (compilation, callback) => {
+      // Create manifest object
+      const manifest = {
+        version: compilation.hash,
+        files: Object.keys(compilation.assets),
+        chunks: {}
+      };
+      
+      // Add chunk information
+      compilation.chunks.forEach(chunk => {
+        manifest.chunks[chunk.name] = {
+          files: Array.from(chunk.files),
+          hash: chunk.hash
+        };
+      });
+      
+      // Serialize to JSON
+      const json = JSON.stringify(manifest, null, 2);
+      
+      // Add as asset
+      compilation.assets['manifest.json'] = new RawSource(json);
+      
+      callback();
+    });
+  }
+}
+```
+
+## Error Handling
+
+Emit errors and warnings through the compilation:
+
+```javascript
+class ValidationPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('ValidationPlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'ValidationPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_ANALYSE
+        },
+        (assets) => {
+          for (const filename in assets) {
+            const asset = assets[filename];
+            const size = asset.size();
+            
+            // Warning for large files
+            if (size > 1000000) {
+              compilation.warnings.push(
+                new Error(`${filename} exceeds 1MB (${size} bytes)`)
+              );
+            }
+            
+            // Error for very large files
+            if (size > 5000000) {
+              compilation.errors.push(
+                new Error(`${filename} exceeds 5MB limit (${size} bytes)`)
+              );
+            }
+          }
+        }
+      );
+    });
+  }
+}
+```
+
+## Working with Modules
+
+```javascript
+class ModuleStatsPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('ModuleStatsPlugin', (compilation) => {
+      compilation.hooks.finishModules.tap('ModuleStatsPlugin', (modules) => {
+        const stats = {
+          total: modules.size,
+          byType: {}
+        };
+        
+        for (const module of modules) {
+          const type = module.type;
+          stats.byType[type] = (stats.byType[type] || 0) + 1;
+        }
+        
+        console.log('Module Statistics:', stats);
+      });
+    });
+  }
+}
+```
+
+## Watching Files
+
+Add custom file watching:
+
+```javascript
+const path = require('path');
+
+class ConfigWatcherPlugin {
+  constructor(options) {
+    this.configPath = options.configPath;
+  }
+  
+  apply(compiler) {
+    compiler.hooks.compilation.tap('ConfigWatcherPlugin', (compilation) => {
+      // Add file to compilation dependencies
+      compilation.fileDependencies.add(this.configPath);
+    });
+    
+    compiler.hooks.watchRun.tapAsync(
+      'ConfigWatcherPlugin',
+      (compiler, callback) => {
+        // Check if config was modified
+        const changedFiles = compiler.modifiedFiles || new Set();
+        
+        if (changedFiles.has(this.configPath)) {
+          console.log('Config file changed, rebuilding...');
+        }
+        
+        callback();
+      }
+    );
+  }
+}
+```
+
+## Using Child Compilers
+
+Create a child compilation for isolated processing:
+
+```javascript
+class ChildCompilerPlugin {
+  apply(compiler) {
+    compiler.hooks.make.tapAsync('ChildCompilerPlugin', (compilation, callback) => {
+      // Create child compiler
+      const childCompiler = compilation.createChildCompiler(
+        'ChildCompilerPlugin',
+        { filename: 'child-output.js' },
+        [
+          // Plugins for child compiler
+        ]
+      );
+      
+      // Add entry to child compiler
+      new EntryPlugin(
+        compiler.context,
+        './src/child-entry.js',
+        'child'
+      ).apply(childCompiler);
+      
+      // Run child compiler
+      childCompiler.runAsChild((err, entries, childCompilation) => {
+        if (err) return callback(err);
+        
+        // Use child compilation results
+        const asset = childCompilation.assets['child-output.js'];
+        const source = asset.source();
+        
+        callback();
+      });
+    });
+  }
+}
+```
+
+## Real-World Example: Bundle Size Reporter
+
+```javascript
+const chalk = require('chalk');
+const prettyBytes = require('pretty-bytes');
+
+class BundleSizeReporterPlugin {
+  constructor(options = {}) {
+    this.options = {
+      maxSize: 500000, // 500KB
+      showGzipped: true,
+      ...options
+    };
+  }
+  
+  apply(compiler) {
+    const logger = compiler.getInfrastructureLogger('BundleSizeReporterPlugin');
+    
+    compiler.hooks.done.tap('BundleSizeReporterPlugin', (stats) => {
+      const { assets } = stats.toJson({ assets: true });
+      
+      logger.info('\n📦 Bundle Size Report:\n');
+      
+      const tableData = [];
+      let totalSize = 0;
+      
+      assets.forEach(asset => {
+        const size = asset.size;
+        totalSize += size;
+        
+        const sizeFormatted = prettyBytes(size);
+        const status = size > this.options.maxSize
+          ? chalk.red('⚠️  TOO LARGE')
+          : chalk.green('✓');
+        
+        tableData.push([
+          status,
+          asset.name,
+          sizeFormatted
+        ]);
+      });
+      
+      // Print table
+      console.table(tableData);
+      
+      logger.info(`Total: ${prettyBytes(totalSize)}`);
+      
+      // Emit warnings for large bundles
+      assets.forEach(asset => {
+        if (asset.size > this.options.maxSize) {
+          stats.compilation.warnings.push(
+            new Error(
+              `Asset ${asset.name} exceeds size limit (${prettyBytes(asset.size)} > ${prettyBytes(this.options.maxSize)})`
+            )
+          );
+        }
+      });
+    });
+  }
+}
+
+module.exports = BundleSizeReporterPlugin;
+```
+
+## Schema Validation
+
+Validate plugin options using schema-utils:
+
+```javascript
+const { validate } = require('schema-utils');
+
+const schema = {
+  type: 'object',
+  properties: {
+    enabled: {
+      type: 'boolean'
+    },
+    outputFile: {
+      type: 'string'
+    },
+    threshold: {
+      type: 'number',
+      minimum: 0
+    }
+  },
+  additionalProperties: false
+};
+
+class MyPlugin {
+  constructor(options = {}) {
+    validate(schema, options, {
+      name: 'MyPlugin',
+      baseDataPath: 'options'
+    });
+    
+    this.options = options;
+  }
+  
+  apply(compiler) {
+    // Plugin logic
+  }
+}
+```
+
+## Testing Plugins
+
+```javascript
+const webpack = require('webpack');
+const MemoryFs = require('memory-fs');
+const path = require('path');
+const MyPlugin = require('../src/my-plugin');
+
+function runWebpack(config) {
+  return new Promise((resolve, reject) => {
+    const compiler = webpack(config);
+    const memFs = new MemoryFs();
+    compiler.outputFileSystem = memFs;
+    
+    compiler.run((err, stats) => {
+      if (err) return reject(err);
+      if (stats.hasErrors()) {
+        return reject(new Error(stats.toString()));
+      }
+      
+      resolve({ stats, memFs });
+    });
+  });
+}
+
+test('MyPlugin adds asset', async () => {
+  const { stats, memFs } = await runWebpack({
+    mode: 'production',
+    entry: './test/fixtures/entry.js',
+    output: {
+      path: path.resolve(__dirname, 'output'),
+      filename: 'bundle.js'
+    },
+    plugins: [
+      new MyPlugin({ outputFile: 'test.txt' })
+    ]
+  });
+  
+  const { assets } = stats.toJson();
+  expect(assets.map(a => a.name)).toContain('test.txt');
+  
+  const content = memFs.readFileSync(
+    path.resolve(__dirname, 'output/test.txt'),
+    'utf8'
+  );
+  expect(content).toContain('expected content');
+});
+```
+
+## Debugging Plugins
+
+Use webpack's logging infrastructure:
+
+```javascript
+class DebugPlugin {
+  apply(compiler) {
+    const logger = compiler.getInfrastructureLogger('DebugPlugin');
+    
+    logger.group('Plugin initialized');
+    logger.log('Options:', this.options);
+    logger.groupEnd();
+    
+    compiler.hooks.compilation.tap('DebugPlugin', (compilation) => {
+      const compLogger = compilation.getLogger('DebugPlugin');
+      
+      compLogger.time('Processing');
+      
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'DebugPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
+        },
+        (assets) => {
+          compLogger.debug('Assets:', Object.keys(assets));
+          compLogger.timeEnd('Processing');
+        }
+      );
+    });
+  }
+}
+```
+
+## Best Practices
+
+1. **Use clear naming** - Name your plugin descriptively and end with "Plugin"
+2. **Validate options early** - Validate in the constructor using schema-utils
+3. **Use appropriate hooks** - Choose the right hook for your use case
+4. **Handle errors gracefully** - Use compilation.errors and compilation.warnings
+5. **Clean up resources** - Remove event listeners when appropriate
+6. **Use webpack's utilities** - Leverage webpack-sources and other utilities
+7. **Log appropriately** - Use webpack's logging infrastructure
+8. **Document thoroughly** - Provide clear documentation and examples
+9. **Test comprehensively** - Write unit and integration tests
+10. **Consider performance** - Be mindful of performance impacts
+
+## Plugin Patterns
+
+### Singleton Pattern
+
+```javascript
+class SingletonPlugin {
+  static instance = null;
+  
+  constructor() {
+    if (SingletonPlugin.instance) {
+      return SingletonPlugin.instance;
+    }
+    SingletonPlugin.instance = this;
+  }
+  
+  apply(compiler) {
+    // Plugin logic
+  }
+}
+```
+
+### Multi-Compiler Support
+
+```javascript
+class MultiCompilerPlugin {
+  apply(compiler) {
+    if (compiler.compilers) {
+      // Multi-compiler mode
+      compiler.compilers.forEach(childCompiler => {
+        this.applyToCompiler(childCompiler);
+      });
+    } else {
+      // Single compiler mode
+      this.applyToCompiler(compiler);
+    }
+  }
+  
+  applyToCompiler(compiler) {
+    // Apply to individual compiler
+  }
+}
+```
+
+## Next Steps
+
+- [Plugin API](/plugins/plugin-api) - Complete hook reference
+- [Compiler Hooks](https://webpack.js.org/api/plugins/compiler-hooks/) - Official documentation
+- [Compilation Hooks](https://webpack.js.org/api/plugins/compilation-hooks/) - Official documentation

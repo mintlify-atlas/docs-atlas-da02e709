@@ -1,0 +1,424 @@
+---
+title: Loaders
+description: Transform module source code with loaders before webpack processes it
+---
+
+Loaders allow webpack to process more than just JavaScript and JSON files. They transform the source code of a module, enabling you to preprocess files as you `import` or "load" them.
+
+## Loader Basics
+
+From `NormalModuleFactory.js`, loaders are resolved and applied to modules:
+
+```javascript NormalModuleFactory.js
+class NormalModuleFactory {
+  resolveRequestArray(contextInfo, context, array, resolver, resolveContext, callback) {
+    // Resolve loader paths
+    asyncLib.map(array, (item, callback) => {
+      resolver.resolve(
+        contextInfo,
+        context,
+        item.loader,
+        resolveContext,
+        (err, result) => {
+          // Handle -loader suffix auto-addition
+          if (err && !item.loader.endsWith('-loader')) {
+            return resolver.resolve(
+              contextInfo,
+              context,
+              `${item.loader}-loader`,
+              resolveContext,
+              callback
+            );
+          }
+          callback(err, result);
+        }
+      );
+    }, callback);
+  }
+}
+```
+
+## Configuration
+
+<Tabs>
+  <Tab title="Inline">
+    ```javascript
+    import styles from 'style-loader!css-loader!./styles.css';
+    ```
+    
+    Loaders are applied from right to left (or bottom to top).
+  </Tab>
+  
+  <Tab title="Configuration">
+    ```javascript webpack.config.js
+    module.exports = {
+      module: {
+        rules: [
+          {
+            test: /\.css$/,
+            use: [
+              { loader: 'style-loader' },
+              { loader: 'css-loader' }
+            ]
+          }
+        ]
+      }
+    };
+    ```
+  </Tab>
+  
+  <Tab title="CLI">
+    ```bash
+    webpack --module-bind jade-loader --module-bind 'css=style-loader!css-loader'
+    ```
+  </Tab>
+</Tabs>
+
+## Loader Types
+
+Based on `NormalModuleFactory.js`, loaders are categorized:
+
+```javascript
+const useLoadersPost = [];  // post loaders (enforce: 'post')
+const useLoaders = [];       // normal loaders
+const useLoadersPre = [];    // pre loaders (enforce: 'pre')
+
+// Execution order: pre -> normal -> inline -> post
+```
+
+## Loader Features
+
+From `NormalModule.js`, the loader context provides:
+
+```javascript NormalModule.js
+const loaderContext = {
+  // Loader API version
+  version: 2,
+  
+  // Get loader options with schema validation
+  getOptions: (schema) => { /* ... */ },
+  
+  // Emit warnings and errors
+  emitWarning: (warning) => { /* ... */ },
+  emitError: (error) => { /* ... */ },
+  
+  // Emit files
+  emitFile: (name, content, sourceMap, assetInfo) => {
+    buildInfo.assets[name] = this.createSourceForAsset(
+      options.context,
+      name,
+      content,
+      sourceMap,
+      compilation.compiler.root
+    );
+  },
+  
+  // Add dependencies
+  addDependency: (dep) => {
+    fileDependencies.add(dep);
+  },
+  addContextDependency: (context) => {
+    contextDependencies.add(context);
+  },
+  addMissingDependency: (missing) => {
+    missingDependencies.add(missing);
+  },
+  addBuildDependency: (dep) => {
+    buildInfo.buildDependencies.add(dep);
+  },
+  
+  // Resolve utilities
+  resolve(context, request, callback) { /* ... */ },
+  getResolve(options) { /* ... */ },
+  
+  // Logging
+  getLogger: (name) => { /* ... */ },
+  
+  // Utilities
+  utils: {
+    absolutify,
+    contextify,
+    createHash
+  },
+  
+  // Webpack context
+  rootContext: options.context,
+  webpack: true,
+  sourceMap: Boolean(this.useSourceMap),
+  mode: options.mode || 'production',
+  
+  // Hash options
+  hashFunction: options.output.hashFunction,
+  hashDigest: options.output.hashDigest,
+  hashDigestLength: options.output.hashDigestLength,
+  hashSalt: options.output.hashSalt
+};
+```
+
+## Loader Execution
+
+From `NormalModule.js`, loaders are executed via loader-runner:
+
+```javascript NormalModule.js
+runLoaders({
+  resource: this.resource,
+  loaders: this.loaders,
+  context: loaderContext,
+  processResource: async (loaderContext, resourcePath, callback) => {
+    // Read resource with appropriate hook
+    const scheme = getScheme(resourcePath);
+    const result = await hooks.readResource
+      .for(scheme)
+      .callAsync(loaderContext);
+    
+    // Extract source map if configured
+    if (this.extractSourceMap && (this.useSourceMap || this.useSimpleSourceMap)) {
+      const { source, sourceMap } = await extractSourceMap(result, resourcePath);
+      return callback(null, source, sourceMap);
+    }
+    
+    return callback(null, result);
+  }
+}, (err, result) => {
+  // Process loader result
+});
+```
+
+## Writing a Loader
+
+<CodeGroup>
+```javascript simple-loader.js
+module.exports = function(source) {
+  // Transform source
+  const transformed = source.replace(/var/g, 'let');
+  
+  // Return transformed source
+  return transformed;
+};
+```
+
+```javascript async-loader.js
+module.exports = function(source) {
+  const callback = this.async();
+  
+  someAsyncOperation(source, (err, result) => {
+    if (err) return callback(err);
+    
+    // Return source, sourceMap, and AST
+    callback(null, result, sourceMap, ast);
+  });
+};
+```
+
+```javascript raw-loader.js
+module.exports = function(source) {
+  // source is a Buffer
+  return source;
+};
+
+// Mark as raw loader
+module.exports.raw = true;
+```
+</CodeGroup>
+
+## Loader Options
+
+Options are validated and accessed via `getOptions()`:
+
+```javascript my-loader.js
+module.exports = function(source) {
+  // Get validated options
+  const options = this.getOptions({
+    type: 'object',
+    properties: {
+      name: {
+        type: 'string'
+      },
+      limit: {
+        type: 'number'
+      }
+    }
+  });
+  
+  // Use options
+  const { name, limit } = options;
+  
+  return transform(source, options);
+};
+```
+
+## Pitching Loaders
+
+Loaders execute in two phases:
+
+```javascript pitch-loader.js
+module.exports = function(source) {
+  // Normal phase (right to left)
+  return transform(source);
+};
+
+module.exports.pitch = function(remainingRequest, precedingRequest, data) {
+  // Pitch phase (left to right)
+  // Can short-circuit loader execution
+  if (someCondition) {
+    return `module.exports = require(${JSON.stringify('-!' + remainingRequest)});`;
+  }
+  
+  // Store data for normal phase
+  data.value = 42;
+};
+```
+
+<Note>
+If a loader returns a value in the pitch phase, execution turns around and skips remaining loaders.
+</Note>
+
+## Loader Categories
+
+### Pre Loaders
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        enforce: 'pre',
+        loader: 'eslint-loader'
+      }
+    ]
+  }
+};
+```
+
+### Normal Loaders
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        loader: 'babel-loader'
+      }
+    ]
+  }
+};
+```
+
+### Post Loaders
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        enforce: 'post',
+        loader: 'coverage-loader'
+      }
+    ]
+  }
+};
+```
+
+## Inline Loader Syntax
+
+From `NormalModuleFactory.js`, inline loaders support prefixes:
+
+```javascript
+// Disable all configured normal loaders
+import styles from '!style-loader!css-loader!./styles.css';
+
+// Disable all configured pre and normal loaders
+import styles from '-!style-loader!css-loader!./styles.css';
+
+// Disable all configured loaders (pre, normal, post)
+import styles from '!!style-loader!css-loader!./styles.css';
+```
+
+Implementation:
+```javascript NormalModuleFactory.js
+const firstChar = requestWithoutMatchResource.charCodeAt(0);
+const secondChar = requestWithoutMatchResource.charCodeAt(1);
+noPreAutoLoaders = firstChar === 45 && secondChar === 33; // -!
+noAutoLoaders = noPreAutoLoaders || firstChar === 33;     // !
+noPrePostAutoLoaders = firstChar === 33 && secondChar === 33; // !!
+```
+
+## Common Loaders
+
+<CardGroup cols={2}>
+  <Card title="babel-loader" icon="js">
+    Transpile JavaScript files using Babel
+  </Card>
+  <Card title="css-loader" icon="css3">
+    Resolve CSS @import and url() references
+  </Card>
+  <Card title="style-loader" icon="palette">
+    Inject CSS into the DOM
+  </Card>
+  <Card title="sass-loader" icon="sass">
+    Compile Sass/SCSS files to CSS
+  </Card>
+  <Card title="file-loader" icon="file">
+    Emit files to output directory
+  </Card>
+  <Card title="url-loader" icon="link">
+    Inline files as data URLs or emit as files
+  </Card>
+</CardGroup>
+
+## Loader Resolution
+
+Loaders are resolved like modules:
+
+```javascript webpack.config.js
+module.exports = {
+  resolveLoader: {
+    modules: ['node_modules', path.resolve(__dirname, 'loaders')],
+    extensions: ['.js', '.json'],
+    mainFields: ['loader', 'main']
+  }
+};
+```
+
+## Caching
+
+From `NormalModule.js`, loader results are cached:
+
+```javascript
+buildInfo.cacheable = true; // Set by loader
+
+// Loaders can disable caching
+module.exports = function(source) {
+  this.cacheable(false); // Disable caching for this loader
+  return transform(source);
+};
+```
+
+<Warning>
+By default, loader results are cached. Use `this.cacheable(false)` if your loader depends on external state.
+</Warning>
+
+## Source Maps
+
+Loaders can provide source maps:
+
+```javascript source-map-loader.js
+module.exports = function(source, map) {
+  // Receive source map from previous loader
+  const callback = this.async();
+  
+  processSourceMap(source, map, (err, source, map) => {
+    // Return transformed source and map
+    callback(null, source, map);
+  });
+};
+```
+
+## Related Concepts
+
+- [Modules](/concepts/modules) - What loaders transform
+- [Plugins](/concepts/plugins) - Extend webpack's capabilities
+- [Module Resolution](/concepts/module-resolution) - How loaders are found

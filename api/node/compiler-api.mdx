@@ -1,0 +1,285 @@
+---
+title: Compiler API
+description: The Compiler instance exposes the main API for webpack compilation and provides hooks for plugins to tap into the compilation lifecycle.
+---
+
+The `Compiler` class is the central engine of webpack. It extends from Tapable and provides methods to run, watch, and control webpack compilations.
+
+## Accessing the Compiler
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+const compiler = webpack(config);
+```
+
+## Methods
+
+### run(callback)
+
+Runs a single compilation.
+
+<ParamField path="callback" type="function(err, stats)" required>
+  Callback function invoked when the compilation completes.
+  
+  - `err`: Error object if the compilation failed
+  - `stats`: Stats object containing compilation information
+</ParamField>
+
+**Example:**
+
+```javascript
+const compiler = webpack(config);
+
+compiler.run((err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  console.log(stats.toString({
+    colors: true,
+    chunks: false
+  }));
+
+  // Always close the compiler when done
+  compiler.close((closeErr) => {
+    if (closeErr) {
+      console.error(closeErr);
+    }
+  });
+});
+```
+
+<Warning>
+  Always call `compiler.close()` after running to free up resources.
+</Warning>
+
+### watch(watchOptions, handler)
+
+Starts webpack in watch mode. Watches for file changes and recompiles when changes are detected.
+
+<ParamField path="watchOptions" type="WatchOptions" required>
+  Configuration options for the watcher.
+  
+  **Properties:**
+  - `aggregateTimeout` (number): Delay before rebuilding (default: 20ms)
+  - `poll` (boolean | number): Enable polling mode or set polling interval
+  - `ignored` (string | RegExp | string[]): Files/directories to ignore
+</ParamField>
+
+<ParamField path="handler" type="function(err, stats)" required>
+  Callback function called after each compilation.
+</ParamField>
+
+**Returns:** A `Watching` instance
+
+**Example:**
+
+```javascript
+const compiler = webpack(config);
+
+const watching = compiler.watch({
+  aggregateTimeout: 300,
+  poll: undefined
+}, (err, stats) => {
+  if (err || stats.hasErrors()) {
+    console.error(err || stats.toString());
+  }
+  
+  console.log(stats.toString({
+    colors: true
+  }));
+});
+
+// Stop watching
+// watching.close(() => {
+//   console.log('Watching ended.');
+// });
+```
+
+### close(callback)
+
+Closes the compiler and releases resources.
+
+<ParamField path="callback" type="function(err)" required>
+  Callback function invoked when the compiler is closed.
+</ParamField>
+
+**Example:**
+
+```javascript
+compiler.close((err) => {
+  if (err) {
+    console.error('Error closing compiler:', err);
+    return;
+  }
+  console.log('Compiler closed successfully');
+});
+```
+
+### getCache(name)
+
+Returns a cache facade instance for the given name.
+
+<ParamField path="name" type="string" required>
+  The cache name identifier.
+</ParamField>
+
+**Returns:** `CacheFacade` instance
+
+**Example:**
+
+```javascript
+const cache = compiler.getCache('my-plugin');
+```
+
+### getInfrastructureLogger(name)
+
+Returns a logger instance for infrastructure logging.
+
+<ParamField path="name" type="string | function" required>
+  Name of the logger or a function that returns the logger name.
+</ParamField>
+
+**Returns:** `Logger` instance
+
+**Example:**
+
+```javascript
+const logger = compiler.getInfrastructureLogger('MyPlugin');
+logger.log('Plugin initialized');
+logger.warn('Potential issue detected');
+```
+
+## Properties
+
+### options
+
+The webpack configuration options passed to the compiler.
+
+```javascript
+console.log(compiler.options.mode); // 'development' or 'production'
+```
+
+### context
+
+The base directory (absolute path) for resolving entry points and loaders.
+
+```javascript
+console.log(compiler.context); // '/path/to/project'
+```
+
+### outputPath
+
+The output directory as an absolute path.
+
+```javascript
+console.log(compiler.outputPath); // '/path/to/project/dist'
+```
+
+### outputFileSystem
+
+The file system used for writing output files.
+
+```javascript
+compiler.outputFileSystem = require('fs');
+```
+
+### inputFileSystem
+
+The file system used for reading input files.
+
+```javascript
+compiler.inputFileSystem = require('fs');
+```
+
+### watchFileSystem
+
+The file system watcher implementation.
+
+### running
+
+Boolean indicating whether a compilation is currently running.
+
+```javascript
+if (!compiler.running) {
+  compiler.run(callback);
+}
+```
+
+### watchMode
+
+Boolean indicating whether the compiler is in watch mode.
+
+## Hooks
+
+The Compiler exposes numerous hooks for plugins to tap into the compilation lifecycle:
+
+### Compilation Hooks
+
+- `compile` - Before a new compilation is created
+- `compilation` - After a compilation is created
+- `make` - Before the compilation starts
+- `afterCompile` - After the compilation finishes
+
+### Asset Hooks
+
+- `emit` - Before emitting assets to output directory
+- `afterEmit` - After emitting assets to output directory
+- `assetEmitted` - When an asset has been emitted
+
+### Run Hooks
+
+- `beforeRun` - Before the compiler starts running
+- `run` - Before the compiler starts reading records
+- `done` - After compilation has completed
+- `failed` - If compilation fails
+
+### Watch Hooks
+
+- `watchRun` - Before a watch compilation starts
+- `watchClose` - When watch mode is stopped
+- `invalid` - When a watched file changes
+
+**Example using hooks:**
+
+```javascript
+compiler.hooks.done.tap('MyPlugin', (stats) => {
+  console.log('Compilation finished!');
+});
+
+compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+  console.log('Assets are about to be emitted');
+  callback();
+});
+```
+
+## Advanced Usage
+
+### Creating Child Compilers
+
+```javascript
+const childCompiler = compiler.createChildCompiler(
+  compilation,
+  'child-compiler-name',
+  0,
+  { filename: 'child-output.js' },
+  plugins
+);
+```
+
+### Running as Child
+
+```javascript
+compiler.runAsChild((err, entries, compilation) => {
+  // Handle child compilation result
+});
+```
+
+## See Also
+
+- [webpack() function](/api/node/webpack) - Creating compiler instances
+- [Watching API](/api/node/watching) - Watch mode details
+- [Compiler Hooks](/api/plugins/compiler-hooks) - Complete list of compiler hooks

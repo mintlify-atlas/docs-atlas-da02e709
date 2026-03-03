@@ -1,0 +1,444 @@
+---
+title: Performance
+description: Configure performance hints and asset size limits in webpack
+---
+
+The `performance` configuration controls webpack's performance hints. webpack can show warnings when bundles or assets exceed size limits.
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  performance: {
+    hints: 'warning',
+    maxEntrypointSize: 512000,
+    maxAssetSize: 250000
+  }
+};
+```
+
+## Overview
+
+<ParamField path="performance" type="object | false">
+  Configure performance hints.
+  
+  **Default:** 
+  - Production (web target): `{ hints: 'warning' }`
+  - Development or non-web target: `false`
+  
+  ```javascript
+  // Enable with defaults
+  performance: {}
+  
+  // Disable
+  performance: false
+  ```
+</ParamField>
+
+## Hints
+
+<ParamField path="performance.hints" type="'warning' | 'error' | false">
+  Control when performance hints are shown.
+  
+  **Default:** `'warning'` in production (web target), `false` otherwise
+  
+  - `'warning'` - Show warnings in console
+  - `'error'` - Show errors (fails build in production mode)
+  - `false` - Disable performance hints
+  
+  ```javascript
+  performance: {
+    hints: 'warning'
+  }
+  ```
+</ParamField>
+
+## Size Limits
+
+<ParamField path="performance.maxEntrypointSize" type="number">
+  Maximum size of an entrypoint (in bytes). An entrypoint represents all assets that are loaded during initial page load.
+  
+  **Default:** `250000` (244 KiB)
+  
+  ```javascript
+  performance: {
+    maxEntrypointSize: 512000 // 500 KiB
+  }
+  ```
+</ParamField>
+
+<ParamField path="performance.maxAssetSize" type="number">
+  Maximum size of an individual asset (in bytes).
+  
+  **Default:** `250000` (244 KiB)
+  
+  ```javascript
+  performance: {
+    maxAssetSize: 300000 // ~293 KiB
+  }
+  ```
+</ParamField>
+
+<Info>
+  Size limits are in bytes. Common conversions:
+  - 100 KB = 100,000 bytes
+  - 250 KB = 250,000 bytes  
+  - 500 KB = 512,000 bytes
+  - 1 MB = 1,048,576 bytes
+</Info>
+
+## Asset Filtering
+
+<ParamField path="performance.assetFilter" type="function">
+  Filter which assets are checked for size limits. By default, webpack only checks JavaScript and CSS files.
+  
+  **Default:** Filters `.js`, `.mjs`, and `.css` files
+  
+  ```javascript
+  performance: {
+    assetFilter: function(assetFilename) {
+      // Only check JavaScript files
+      return /\.js$/.test(assetFilename);
+    }
+  }
+  ```
+</ParamField>
+
+### Default Asset Filter
+
+The default filter:
+
+```javascript
+performance: {
+  assetFilter: function(assetFilename) {
+    return !/\.map$/.test(assetFilename);
+  }
+}
+```
+
+### Custom Filters
+
+```javascript
+// Check all files
+performance: {
+  assetFilter: () => true
+}
+
+// Check only specific types
+performance: {
+  assetFilter: (assetFilename) => {
+    return /\.(js|css|html)$/.test(assetFilename);
+  }
+}
+
+// Exclude certain files
+performance: {
+  assetFilter: (assetFilename) => {
+    return !/\.(map|txt|LICENSE)$/.test(assetFilename);
+  }
+}
+```
+
+## Common Configurations
+
+### Strict Size Limits
+
+```javascript
+module.exports = {
+  performance: {
+    hints: 'error',
+    maxEntrypointSize: 400000,  // 400 KB
+    maxAssetSize: 200000         // 200 KB
+  }
+};
+```
+
+### Relaxed Limits
+
+```javascript
+module.exports = {
+  performance: {
+    hints: 'warning',
+    maxEntrypointSize: 1000000,  // 1 MB
+    maxAssetSize: 500000          // 500 KB
+  }
+};
+```
+
+### Production Only
+
+```javascript
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
+  
+  return {
+    performance: isProduction ? {
+      hints: 'warning',
+      maxEntrypointSize: 512000,
+      maxAssetSize: 250000
+    } : false
+  };
+};
+```
+
+### Disable for Development
+
+```javascript
+module.exports = {
+  mode: 'development',
+  performance: false
+};
+```
+
+### Custom Asset Filtering
+
+```javascript
+module.exports = {
+  performance: {
+    hints: 'warning',
+    maxEntrypointSize: 512000,
+    maxAssetSize: 250000,
+    assetFilter: (assetFilename) => {
+      // Only check JavaScript and CSS
+      return /\.(js|css)$/.test(assetFilename);
+    }
+  }
+};
+```
+
+### Progressive Web App
+
+```javascript
+module.exports = {
+  performance: {
+    hints: 'warning',
+    // Initial bundle should be small for fast First Contentful Paint
+    maxEntrypointSize: 200000,  // 200 KB
+    maxAssetSize: 150000,       // 150 KB
+    assetFilter: (assetFilename) => {
+      // Don't check service worker size
+      if (assetFilename.endsWith('sw.js')) {
+        return false;
+      }
+      return /\.(js|css)$/.test(assetFilename);
+    }
+  }
+};
+```
+
+## Understanding Performance Hints
+
+### What Gets Checked?
+
+1. **Entrypoint Size**: Total size of all assets loaded for each entry point
+   ```
+   main entrypoint [512 KiB] = main.js + vendors.js + common.js
+   ```
+
+2. **Asset Size**: Individual asset files
+   ```
+   vendors.bundle.js [300 KiB]
+   main.bundle.js [250 KiB]
+   ```
+
+### Example Warning
+
+```
+WARNING in asset size limit: The following asset(s) exceed the recommended size limit (244 KiB).
+This can impact web performance.
+Assets: 
+  vendors.bundle.js (300 KiB)
+
+WARNING in entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244 KiB). This can impact web performance.
+Entrypoints:
+  main (512 KiB)
+    vendors.bundle.js
+    main.bundle.js
+```
+
+## Optimization Strategies
+
+When you see performance warnings:
+
+### 1. Code Splitting
+
+```javascript
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10
+        }
+      }
+    }
+  }
+};
+```
+
+### 2. Dynamic Imports
+
+```javascript
+// Instead of:
+import HeavyComponent from './HeavyComponent';
+
+// Use:
+const HeavyComponent = lazy(() => import('./HeavyComponent'));
+```
+
+### 3. Tree Shaking
+
+```javascript
+module.exports = {
+  mode: 'production',
+  optimization: {
+    usedExports: true,
+    sideEffects: true
+  }
+};
+```
+
+### 4. Minimize Code
+
+```javascript
+const TerserPlugin = require('terser-webpack-plugin');
+
+module.exports = {
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          compress: {
+            drop_console: true,
+            passes: 2
+          }
+        }
+      })
+    ]
+  }
+};
+```
+
+### 5. Analyze Bundle
+
+```javascript
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+
+module.exports = {
+  plugins: [
+    new BundleAnalyzerPlugin()
+  ]
+};
+```
+
+## Environment-Specific Configurations
+
+### Development
+
+```javascript
+module.exports = {
+  mode: 'development',
+  performance: {
+    hints: false  // Disable for faster builds
+  }
+};
+```
+
+### Staging
+
+```javascript
+module.exports = {
+  mode: 'production',
+  performance: {
+    hints: 'warning',
+    maxEntrypointSize: 512000,
+    maxAssetSize: 300000
+  }
+};
+```
+
+### Production
+
+```javascript
+module.exports = {
+  mode: 'production',
+  performance: {
+    hints: 'error',  // Fail build if limits exceeded
+    maxEntrypointSize: 400000,
+    maxAssetSize: 250000
+  }
+};
+```
+
+## CI/CD Integration
+
+### Fail Build on Size Limits
+
+```javascript
+module.exports = {
+  performance: {
+    hints: process.env.CI ? 'error' : 'warning',
+    maxEntrypointSize: 512000,
+    maxAssetSize: 250000
+  }
+};
+```
+
+### Size Budget Monitoring
+
+```javascript
+const SizeLimitPlugin = require('size-limit');
+
+module.exports = {
+  performance: {
+    hints: 'error',
+    maxEntrypointSize: 512000,
+    maxAssetSize: 250000
+  },
+  plugins: [
+    new SizeLimitPlugin({
+      limit: '500 KB',
+      gzip: true
+    })
+  ]
+};
+```
+
+## Best Practices
+
+1. **Set Realistic Limits**: Based on your target users and network conditions
+   ```javascript
+   // Mobile-first
+   maxEntrypointSize: 300000  // 300 KB
+   
+   // Desktop application
+   maxEntrypointSize: 1000000 // 1 MB
+   ```
+
+2. **Use Warnings in Development**: Don't fail builds during development
+   ```javascript
+   hints: process.env.NODE_ENV === 'production' ? 'error' : 'warning'
+   ```
+
+3. **Regular Monitoring**: Check bundle sizes in CI/CD pipeline
+
+4. **Progressive Enhancement**: Load heavy features on-demand
+
+5. **Analyze Before Optimizing**: Use bundle analyzer to find large dependencies
+
+## Source Code Reference
+
+Performance configuration defaults are defined in:
+- `lib/config/defaults.js:473-486` - Performance defaults
+- `lib/config/defaults.js:1815-1820` - Performance defaults application
+
+## See Also
+
+- [Optimization Configuration](/configuration/optimization)
+- [Output Configuration](/configuration/output)
+- [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer)
+- [Web Performance](https://web.dev/performance/)

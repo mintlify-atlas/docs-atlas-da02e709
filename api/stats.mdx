@@ -1,0 +1,371 @@
+---
+title: Stats
+description: API reference for webpack's Stats class
+---
+
+The `Stats` class wraps a `Compilation` and provides methods to access compilation statistics and output formatted compilation information.
+
+## Constructor
+
+<ParamField path="compilation" type="Compilation" required>
+  The compilation to wrap
+</ParamField>
+
+```javascript
+// Usually created automatically by webpack
+compiler.run((err, stats) => {
+  // stats is a Stats instance
+});
+```
+
+## Properties
+
+<ResponseField name="compilation" type="Compilation">
+  Reference to the underlying Compilation instance
+</ResponseField>
+
+<ResponseField name="hash" type="string | undefined">
+  The compilation hash (from compilation.hash)
+</ResponseField>
+
+<ResponseField name="startTime" type="number | undefined">
+  Timestamp when compilation started (from compilation.startTime)
+</ResponseField>
+
+<ResponseField name="endTime" type="number | undefined">
+  Timestamp when compilation ended (from compilation.endTime)
+</ResponseField>
+
+## Methods
+
+### hasWarnings()
+
+Checks if the compilation has any warnings.
+
+<ResponseField name="return" type="boolean">
+  True if there are warnings
+</ResponseField>
+
+```javascript
+compiler.run((err, stats) => {
+  if (stats.hasWarnings()) {
+    console.warn('Build completed with warnings');
+  }
+});
+```
+
+### hasErrors()
+
+Checks if the compilation has any errors.
+
+<ResponseField name="return" type="boolean">
+  True if there are errors
+</ResponseField>
+
+```javascript
+compiler.run((err, stats) => {
+  if (stats.hasErrors()) {
+    console.error('Build failed with errors');
+    process.exit(1);
+  }
+});
+```
+
+### toJson()
+
+Returns a JSON representation of the compilation statistics.
+
+<ParamField path="options" type="StatsValue">
+  Stats options to control output detail. Can be:
+  - A preset string: `'normal'`, `'detailed'`, `'verbose'`, `'minimal'`, `'errors-only'`, `'errors-warnings'`, `'none'`
+  - A boolean: `true` for `'normal'`, `false` for `'none'`
+  - An options object with specific settings
+</ParamField>
+
+<ResponseField name="return" type="StatsCompilation">
+  JSON representation of compilation stats
+</ResponseField>
+
+```javascript
+compiler.run((err, stats) => {
+  const jsonStats = stats.toJson('minimal');
+  
+  console.log('Hash:', jsonStats.hash);
+  console.log('Time:', jsonStats.time, 'ms');
+  console.log('Assets:', jsonStats.assets.length);
+  console.log('Chunks:', jsonStats.chunks.length);
+  console.log('Modules:', jsonStats.modules.length);
+});
+```
+
+#### Stats Options Examples
+
+```javascript
+// Preset
+const stats = stats.toJson('verbose');
+
+// Boolean
+const stats = stats.toJson(true); // Same as 'normal'
+
+// Custom options object
+const stats = stats.toJson({
+  assets: true,
+  chunks: true,
+  modules: true,
+  errors: true,
+  warnings: true,
+  colors: false,
+  hash: true,
+  version: true,
+  timings: true,
+  builtAt: true,
+  entrypoints: true,
+  
+  // Control what module info to show
+  modulesSpace: 50,
+  
+  // Filter assets
+  excludeAssets: /\.map$/,
+  
+  // Filter modules  
+  excludeModules: /node_modules/,
+  
+  // Group assets
+  groupAssetsByPath: true,
+  groupAssetsByExtension: true
+});
+```
+
+### toString()
+
+Returns a formatted string representation of the compilation statistics.
+
+<ParamField path="options" type="StatsValue">
+  Stats options to control output format (same as toJson)
+</ParamField>
+
+<ResponseField name="return" type="string">
+  Formatted string output
+</ResponseField>
+
+```javascript
+compiler.run((err, stats) => {
+  // Default output
+  console.log(stats.toString());
+  
+  // Colored output with minimal info
+  console.log(stats.toString({
+    colors: true,
+    modules: false,
+    chunks: false
+  }));
+  
+  // Errors only
+  console.log(stats.toString('errors-only'));
+});
+```
+
+#### Output Examples
+
+```javascript
+// Minimal output
+const output = stats.toString('minimal');
+// Output:
+// webpack 5.x.x compiled successfully in 1234 ms
+
+// Detailed output
+const output = stats.toString('detailed');
+// Output:
+// asset main.js 1.23 KiB [emitted] (name: main)
+// asset styles.css 456 bytes [emitted] (name: main)
+// runtime modules 456 bytes 2 modules
+// ./src/index.js 789 bytes [built]
+// webpack 5.x.x compiled successfully in 1234 ms
+
+// Errors only
+const output = stats.toString('errors-only');
+// Output (when errors exist):
+// ERROR in ./src/index.js
+// Module not found: Error: Can't resolve './missing'
+```
+
+## Common Usage Patterns
+
+### CLI-style Output
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config');
+
+const compiler = webpack(config);
+
+compiler.run((err, stats) => {
+  if (err) {
+    console.error(err.stack || err);
+    if (err.details) {
+      console.error(err.details);
+    }
+    return;
+  }
+
+  const info = stats.toJson();
+
+  if (stats.hasErrors()) {
+    console.error('Build failed with errors:');
+    info.errors.forEach(error => console.error(error));
+  }
+
+  if (stats.hasWarnings()) {
+    console.warn('Build completed with warnings:');
+    info.warnings.forEach(warning => console.warn(warning));
+  }
+
+  // Print build stats
+  console.log(stats.toString({
+    colors: true,
+    modules: false,
+    children: false,
+    chunks: false,
+    chunkModules: false
+  }));
+});
+```
+
+### Custom Stats Reporter
+
+```javascript
+class StatsReporterPlugin {
+  apply(compiler) {
+    compiler.hooks.done.tap('StatsReporter', (stats) => {
+      const json = stats.toJson({
+        all: false,
+        assets: true,
+        errors: true,
+        warnings: true,
+        timings: true,
+        builtAt: true,
+        hash: true
+      });
+
+      // Custom reporting
+      console.log('\n=== Build Report ===');
+      console.log(`Time: ${json.time}ms`);
+      console.log(`Hash: ${json.hash}`);
+      console.log(`Built at: ${new Date(json.builtAt).toISOString()}`);
+      
+      console.log('\nAssets:');
+      json.assets.forEach(asset => {
+        const size = (asset.size / 1024).toFixed(2);
+        console.log(`  ${asset.name}: ${size} KB`);
+      });
+
+      if (json.errors.length > 0) {
+        console.log('\nErrors:');
+        json.errors.forEach(err => console.error(`  ${err.message}`));
+      }
+
+      if (json.warnings.length > 0) {
+        console.log('\nWarnings:');
+        json.warnings.forEach(warn => console.warn(`  ${warn.message}`));
+      }
+    });
+  }
+}
+```
+
+### Write Stats to File
+
+```javascript
+const fs = require('fs');
+const path = require('path');
+
+compiler.run((err, stats) => {
+  if (err) throw err;
+
+  // Write detailed stats to JSON file
+  const statsJson = stats.toJson({
+    all: true,
+    source: false // Exclude source code
+  });
+
+  fs.writeFileSync(
+    path.join(__dirname, 'dist', 'stats.json'),
+    JSON.stringify(statsJson, null, 2)
+  );
+
+  console.log('Stats written to dist/stats.json');
+});
+```
+
+### Watch Mode with Stats
+
+```javascript
+const watching = compiler.watch({
+  aggregateTimeout: 300,
+  poll: undefined
+}, (err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  // Clear console
+  console.clear();
+
+  // Show compilation time
+  const time = stats.endTime - stats.startTime;
+  console.log(`Compiled in ${time}ms\n`);
+
+  // Show errors/warnings only
+  if (stats.hasErrors() || stats.hasWarnings()) {
+    console.log(stats.toString('errors-warnings'));
+  } else {
+    console.log('✓ Compiled successfully');
+  }
+});
+
+// Stop watching
+process.on('SIGINT', () => {
+  watching.close(() => {
+    console.log('\nStopped watching');
+    process.exit(0);
+  });
+});
+```
+
+## Stats Presets
+
+| Preset | Description |
+|--------|-------------|
+| `'normal'` | Standard output with reasonable detail |
+| `'detailed'` | Very detailed output with all information |
+| `'verbose'` | Maximum detail including internal information |
+| `'minimal'` | Minimal output showing only essential info |
+| `'errors-only'` | Only show errors |
+| `'errors-warnings'` | Only show errors and warnings |
+| `'none'` / `false` | No output |
+| `true` | Same as `'normal'` |
+
+## Accessing Compilation Data
+
+```javascript
+compiler.hooks.done.tap('MyPlugin', (stats) => {
+  // Access the underlying compilation
+  const compilation = stats.compilation;
+  
+  // Access modules
+  console.log('Total modules:', compilation.modules.size);
+  
+  // Access chunks
+  console.log('Total chunks:', compilation.chunks.size);
+  
+  // Access assets
+  console.log('Total assets:', Object.keys(compilation.assets).length);
+  
+  // Check specific conditions
+  const hasSourceMaps = Object.keys(compilation.assets)
+    .some(name => name.endsWith('.map'));
+  
+  console.log('Has source maps:', hasSourceMaps);
+});
+```

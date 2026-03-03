@@ -1,0 +1,294 @@
+---
+title: Watching
+description: Watch mode allows webpack to automatically recompile when files change, improving development workflow.
+---
+
+The `Watching` class manages webpack's watch mode, monitoring file changes and triggering recompilations when necessary.
+
+## Starting Watch Mode
+
+There are two ways to start watch mode:
+
+### Using compiler.watch()
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+const compiler = webpack(config);
+
+const watching = compiler.watch({
+  aggregateTimeout: 300,
+  poll: undefined
+}, (err, stats) => {
+  // Handle compilation result
+  console.log(stats.toString({
+    colors: true
+  }));
+});
+```
+
+### Using webpack() with watch option
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+config.watch = true;
+config.watchOptions = {
+  aggregateTimeout: 300
+};
+
+webpack(config, (err, stats) => {
+  // Called after each compilation
+});
+```
+
+## Watch Options
+
+<ParamField path="aggregateTimeout" type="number" default="20">
+  Delay in milliseconds before rebuilding after the first change is detected. This allows webpack to aggregate multiple changes into a single rebuild.
+</ParamField>
+
+<ParamField path="poll" type="boolean | number">
+  Enable polling mode for watching. Set to `true` to use default polling interval, or specify a number in milliseconds for custom interval.
+  
+  Useful when using webpack inside a virtual machine or container where file system events don't work properly.
+</ParamField>
+
+<ParamField path="ignored" type="string | RegExp | string[]">
+  Files or directories to ignore from watching. Can be a glob pattern, regular expression, or array of patterns.
+  
+  Default: `**/node_modules/**`
+</ParamField>
+
+**Example:**
+
+```javascript
+const watchOptions = {
+  aggregateTimeout: 600,
+  poll: 1000, // Check for changes every second
+  ignored: ['**/node_modules', '**/dist']
+};
+
+compiler.watch(watchOptions, handler);
+```
+
+## Watching Instance Methods
+
+### close(callback)
+
+Stops watching and closes the watcher.
+
+<ParamField path="callback" type="function(err)" required>
+  Callback function invoked when the watcher is fully closed.
+</ParamField>
+
+**Example:**
+
+```javascript
+const watching = compiler.watch(watchOptions, handler);
+
+// Later, stop watching
+watching.close((err) => {
+  if (err) {
+    console.error('Error closing watcher:', err);
+    return;
+  }
+  console.log('Watching ended.');
+});
+```
+
+### invalidate(callback)
+
+Manually invalidates the current compilation and triggers a new build.
+
+<ParamField path="callback" type="function(err)">
+  Optional callback function invoked when the rebuild completes.
+</ParamField>
+
+**Example:**
+
+```javascript
+const watching = compiler.watch(watchOptions, handler);
+
+// Force a rebuild
+watching.invalidate((err) => {
+  if (err) {
+    console.error('Rebuild error:', err);
+  }
+});
+```
+
+### suspend()
+
+Temporarily suspends watching. File changes are still tracked but won't trigger rebuilds.
+
+**Example:**
+
+```javascript
+watching.suspend();
+console.log('Watching suspended');
+```
+
+### resume()
+
+Resumes watching after being suspended. Triggers a rebuild if changes occurred during suspension.
+
+**Example:**
+
+```javascript
+watching.resume();
+console.log('Watching resumed');
+```
+
+## Properties
+
+### running
+
+Boolean indicating whether a compilation is currently running.
+
+```javascript
+if (!watching.running) {
+  console.log('No compilation in progress');
+}
+```
+
+### invalid
+
+Boolean indicating whether the current compilation has been invalidated and a new one is pending.
+
+### suspended
+
+Boolean indicating whether watching is currently suspended.
+
+### closed
+
+Boolean indicating whether the watcher has been closed.
+
+## Complete Example
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+const compiler = webpack(config);
+
+const watching = compiler.watch({
+  aggregateTimeout: 300,
+  poll: undefined,
+  ignored: /node_modules/
+}, (err, stats) => {
+  if (err) {
+    console.error(err.stack || err);
+    if (err.details) {
+      console.error(err.details);
+    }
+    return;
+  }
+
+  const info = stats.toJson();
+
+  if (stats.hasErrors()) {
+    console.error(info.errors);
+  }
+
+  if (stats.hasWarnings()) {
+    console.warn(info.warnings);
+  }
+
+  console.log(stats.toString({
+    chunks: false,
+    colors: true
+  }));
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  watching.close(() => {
+    console.log('\nWebpack watching stopped');
+    process.exit(0);
+  });
+});
+```
+
+## Advanced Usage
+
+### Pausing and Resuming
+
+```javascript
+const watching = compiler.watch(watchOptions, handler);
+
+// Temporarily pause watching during intensive operations
+watching.suspend();
+
+performIntensiveOperation().then(() => {
+  // Resume watching
+  watching.resume();
+});
+```
+
+### Manual Invalidation
+
+```javascript
+const watching = compiler.watch(watchOptions, handler);
+
+// Trigger rebuild when a file changes outside webpack's watch scope
+fs.watch('external-config.json', () => {
+  watching.invalidate();
+});
+```
+
+## Best Practices
+
+<Tip>
+  Use `aggregateTimeout` to prevent excessive rebuilds when multiple files change rapidly (e.g., during git operations).
+</Tip>
+
+<Warning>
+  Always call `watching.close()` when your application shuts down to properly release file system watchers and prevent memory leaks.
+</Warning>
+
+<Note>
+  In Docker or VM environments where file system events may not work correctly, enable polling mode with the `poll` option.
+</Note>
+
+## Troubleshooting
+
+### Watch Not Detecting Changes
+
+If watch mode doesn't detect file changes:
+
+1. **Enable polling:**
+   ```javascript
+   watchOptions: {
+     poll: 1000 // Check every second
+   }
+   ```
+
+2. **Check ignored patterns:**
+   ```javascript
+   watchOptions: {
+     ignored: /node_modules/ // Ensure source files aren't ignored
+   }
+   ```
+
+3. **Increase file watch limit (Linux):**
+   ```bash
+   echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+   sudo sysctl -p
+   ```
+
+### High CPU Usage
+
+If watch mode causes high CPU usage:
+
+- Increase `aggregateTimeout` to reduce rebuild frequency
+- Add more patterns to `ignored` to watch fewer files
+- Disable polling if it's not necessary
+
+## See Also
+
+- [Compiler API](/api/node/compiler-api) - Compiler methods and properties
+- [webpack() function](/api/node/webpack) - Creating compiler instances
+- [Development Guide](/guides/development) - Setting up efficient development workflows

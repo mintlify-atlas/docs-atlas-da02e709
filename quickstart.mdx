@@ -1,80 +1,693 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start"
+description: "Build your first webpack bundle in minutes"
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through creating your first webpack project from scratch. You'll learn how to bundle JavaScript modules, process assets, and create a production-ready build.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Make sure you have [Node.js installed](/installation#prerequisites) before starting.
+</Note>
+
+## Create Your First Bundle
+
+<Steps>
+  <Step title="Set up the project">
+    Create a new directory and initialize npm:
+    
+    ```bash
+    mkdir webpack-demo
+    cd webpack-demo
+    npm init -y
+    npm install --save-dev webpack webpack-cli
+    ```
+    
+    <Info>
+    The `-y` flag accepts all default options when creating `package.json`.
+    </Info>
+  </Step>
+  
+  <Step title="Create project structure">
+    Set up the following directory structure:
+    
+    ```bash
+    mkdir src dist
+    ```
+    
+    Create `src/index.js` with some code:
+    
+    ```javascript src/index.js
+    function component() {
+      const element = document.createElement('div');
+      element.innerHTML = 'Hello webpack!';
+      return element;
+    }
+    
+    document.body.appendChild(component());
+    ```
+    
+    Create `dist/index.html`:
+    
+    ```html dist/index.html
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Getting Started</title>
+      </head>
+      <body>
+        <script src="main.js"></script>
+      </body>
+    </html>
+    ```
+  </Step>
+  
+  <Step title="Update package.json">
+    Mark your package as private and add a build script:
+    
+    ```json package.json
+    {
+      "name": "webpack-demo",
+      "version": "1.0.0",
+      "private": true,
+      "scripts": {
+        "build": "webpack"
+      },
+      "devDependencies": {
+        "webpack": "^5.105.4",
+        "webpack-cli": "^6.0.1"
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Run your first build">
+    Build your project:
+    
+    ```bash
+    npm run build
+    ```
+    
+    You should see output similar to:
+    
+    ```bash
+    asset main.js 72 bytes [emitted] [minimized] (name: main)
+    ./src/index.js 186 bytes [built] [code generated]
+    webpack 5.105.4 compiled successfully
+    ```
+    
+    <Tip>
+    Webpack will automatically look for `src/index.js` as the entry point and output to `dist/main.js`.
+    </Tip>
+  </Step>
+  
+  <Step title="Test your bundle">
+    Open `dist/index.html` in your browser. You should see "Hello webpack!" displayed on the page.
+    
+    <Check>
+    Congratulations! You've created your first webpack bundle.
+    </Check>
+  </Step>
+</Steps>
+
+## Add a Configuration File
+
+While webpack works without configuration, most projects need a config file for customization:
+
+<Steps>
+  <Step title="Create webpack.config.js">
+    Create `webpack.config.js` in your project root:
+    
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      entry: './src/index.js',
+      output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'dist')
+      }
+    };
+    ```
+    
+    <Note>
+    The `path` module is a Node.js built-in for working with file paths.
+    </Note>
+  </Step>
+  
+  <Step title="Update HTML file">
+    Update `dist/index.html` to reference the new bundle name:
+    
+    ```html dist/index.html
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Getting Started</title>
+      </head>
+      <body>
+        <script src="bundle.js"></script>
+      </body>
+    </html>
+    ```
+  </Step>
+  
+  <Step title="Build with config">
+    Run webpack with your new configuration:
+    
+    ```bash
+    npm run build
+    ```
+    
+    Now webpack uses your config file and outputs `bundle.js` instead of `main.js`.
+  </Step>
+</Steps>
+
+## Working with Modules
+
+One of webpack's core strengths is module bundling. Let's create multiple modules:
+
+<Steps>
+  <Step title="Create a utility module">
+    Create `src/math.js`:
+    
+    ```javascript src/math.js
+    export function add(a, b) {
+      return a + b;
+    }
+    
+    export function multiply(a, b) {
+      return a * b;
+    }
+    ```
+  </Step>
+  
+  <Step title="Import and use the module">
+    Update `src/index.js` to use the math module:
+    
+    ```javascript src/index.js
+    import { add, multiply } from './math';
+    
+    function component() {
+      const element = document.createElement('div');
+      const result = add(5, 3);
+      const product = multiply(4, 7);
+      
+      element.innerHTML = `
+        <h1>Hello webpack!</h1>
+        <p>5 + 3 = ${result}</p>
+        <p>4 × 7 = ${product}</p>
+      `;
+      
+      return element;
+    }
+    
+    document.body.appendChild(component());
+    ```
+  </Step>
+  
+  <Step title="Build and test">
+    Build your project:
+    
+    ```bash
+    npm run build
+    ```
+    
+    Open `dist/index.html` in your browser. You should see the calculations displayed.
+    
+    <Tip>
+    Webpack analyzes your imports and includes only the code you actually use (tree shaking).
+    </Tip>
+  </Step>
+</Steps>
+
+## Loading Assets
+
+Webpack can handle more than just JavaScript. Let's add CSS and images:
+
+<Steps>
+  <Step title="Install loaders">
+    Install the CSS loader and style loader:
+    
+    ```bash
+    npm install --save-dev style-loader css-loader
+    ```
+  </Step>
+  
+  <Step title="Configure loaders">
+    Update `webpack.config.js` to handle CSS and images:
+    
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      entry: './src/index.js',
+      output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'dist')
+      },
+      module: {
+        rules: [
+          {
+            test: /\.css$/i,
+            use: ['style-loader', 'css-loader']
+          },
+          {
+            test: /\.(png|svg|jpg|jpeg|gif)$/i,
+            type: 'asset/resource'
+          }
+        ]
+      }
+    };
+    ```
+    
+    <Info>
+    **Loaders are evaluated from right to left.** For CSS, `css-loader` processes the CSS first, then `style-loader` injects it into the DOM.
+    </Info>
+  </Step>
+  
+  <Step title="Create CSS file">
+    Create `src/style.css`:
+    
+    ```css src/style.css
+    body {
+      background-color: #f0f0f0;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    
+    h1 {
+      color: #2b3a42;
+    }
+    
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    ```
+  </Step>
+  
+  <Step title="Import CSS in JavaScript">
+    Update `src/index.js` to import the CSS:
+    
+    ```javascript src/index.js
+    import './style.css';
+    import { add, multiply } from './math';
+    
+    function component() {
+      const element = document.createElement('div');
+      element.className = 'container';
+      const result = add(5, 3);
+      const product = multiply(4, 7);
+      
+      element.innerHTML = `
+        <h1>Hello webpack!</h1>
+        <p>5 + 3 = ${result}</p>
+        <p>4 × 7 = ${product}</p>
+      `;
+      
+      return element;
+    }
+    
+    document.body.appendChild(component());
+    ```
+  </Step>
+  
+  <Step title="Build and view">
+    Build your project:
+    
+    ```bash
+    npm run build
+    ```
+    
+    Open `dist/index.html` in your browser. Your page should now be styled!
+    
+    <Check>
+    Webpack has bundled your CSS along with your JavaScript.
+    </Check>
+  </Step>
+</Steps>
+
+## Development Mode
+
+Let's set up a better development experience:
+
+<Steps>
+  <Step title="Install webpack-dev-server">
+    ```bash
+    npm install --save-dev webpack-dev-server
+    ```
+  </Step>
+  
+  <Step title="Configure dev server">
+    Update `webpack.config.js`:
+    
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      mode: 'development',
+      entry: './src/index.js',
+      output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'dist'),
+        clean: true
+      },
+      devServer: {
+        static: './dist',
+        hot: true,
+        open: true
+      },
+      module: {
+        rules: [
+          {
+            test: /\.css$/i,
+            use: ['style-loader', 'css-loader']
+          },
+          {
+            test: /\.(png|svg|jpg|jpeg|gif)$/i,
+            type: 'asset/resource'
+          }
+        ]
+      }
+    };
+    ```
+    
+    <Tip>
+    The `clean: true` option automatically cleans the output directory before each build.
+    </Tip>
+  </Step>
+  
+  <Step title="Add npm scripts">
+    Update `package.json`:
+    
+    ```json package.json
+    {
+      "scripts": {
+        "build": "webpack",
+        "watch": "webpack --watch",
+        "start": "webpack serve"
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Start development server">
+    Run the development server:
+    
+    ```bash
+    npm start
+    ```
+    
+    Your browser will automatically open to `http://localhost:8080`. Any changes you make to your source files will trigger automatic recompilation and browser refresh!
+    
+    <Info>
+    **Hot Module Replacement (HMR)** allows modules to be updated while the application is running without a full reload.
+    </Info>
+  </Step>
+</Steps>
+
+## Production Build
+
+Create an optimized production build:
+
+<Steps>
+  <Step title="Create production config">
+    Update `webpack.config.js` to support different modes:
+    
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = (env, argv) => {
+      const isProduction = argv.mode === 'production';
+      
+      return {
+        mode: isProduction ? 'production' : 'development',
+        entry: './src/index.js',
+        output: {
+          filename: isProduction ? '[name].[contenthash].js' : 'bundle.js',
+          path: path.resolve(__dirname, 'dist'),
+          clean: true
+        },
+        devServer: {
+          static: './dist',
+          hot: true
+        },
+        module: {
+          rules: [
+            {
+              test: /\.css$/i,
+              use: ['style-loader', 'css-loader']
+            },
+            {
+              test: /\.(png|svg|jpg|jpeg|gif)$/i,
+              type: 'asset/resource'
+            }
+          ]
+        },
+        optimization: {
+          minimize: isProduction
+        }
+      };
+    };
+    ```
+  </Step>
+  
+  <Step title="Add production script">
+    Update `package.json`:
+    
+    ```json package.json
+    {
+      "scripts": {
+        "build": "webpack --mode=production",
+        "start": "webpack serve --mode=development"
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Build for production">
+    Create a production build:
+    
+    ```bash
+    npm run build
+    ```
+    
+    You'll see output like:
+    
+    ```bash
+    asset main.e3a4f2b8.js 1.2 KiB [emitted] [minimized] (name: main)
+    webpack 5.105.4 compiled successfully in 234 ms
+    ```
+    
+    <Check>
+    Your production bundle is minified, optimized, and ready for deployment!
+    </Check>
+  </Step>
+</Steps>
+
+## Real-World Example
+
+Here's a complete webpack configuration based on actual webpack source code:
+
+```javascript webpack.config.js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+/** @type {import('webpack').Configuration} */
+module.exports = {
+  mode: 'production',
+  entry: {
+    main: './src/index.js'
+  },
+  output: {
+    path: path.join(__dirname, 'dist'),
+    filename: '[name].bundle.js',
+    chunkFilename: '[id].chunk.js',
+    assetModuleFilename: 'images/[hash][ext]'
+  },
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader']
+      },
+      {
+        test: /\.(png|jpg|svg)$/,
+        type: 'asset'
+      }
+    ]
+  },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/index.html'
+    })
+  ],
+  optimization: {
+    chunkIds: 'deterministic',
+    splitChunks: {
+      chunks: 'all'
+    }
+  },
+  devServer: {
+    static: './dist',
+    hot: true,
+    port: 8080
+  }
+};
+```
+
+<Tip>
+This configuration includes:
+- **Code splitting** for better caching
+- **Asset optimization** with content hashes
+- **HTML injection** with HtmlWebpackPlugin
+- **Development server** with HMR
+</Tip>
+
+## Common Patterns
+
+<AccordionGroup>
+  <Accordion title="Multiple entry points">
+    ```javascript
+    module.exports = {
+      entry: {
+        app: './src/app.js',
+        admin: './src/admin.js'
+      },
+      output: {
+        filename: '[name].bundle.js',
+        path: path.resolve(__dirname, 'dist')
+      }
+    };
+    ```
+  </Accordion>
+  
+  <Accordion title="Code splitting with dynamic imports">
+    ```javascript src/index.js
+    // Dynamic import for code splitting
+    button.addEventListener('click', () => {
+      import(/* webpackChunkName: "analytics" */ './analytics')
+        .then(module => {
+          module.trackEvent('button_click');
+        });
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="Environment variables">
+    ```javascript webpack.config.js
+    const webpack = require('webpack');
+    
+    module.exports = {
+      plugins: [
+        new webpack.DefinePlugin({
+          'process.env.API_URL': JSON.stringify(process.env.API_URL)
+        })
+      ]
+    };
+    ```
+  </Accordion>
+  
+  <Accordion title="Source maps for debugging">
+    ```javascript webpack.config.js
+    module.exports = {
+      mode: 'development',
+      devtool: 'inline-source-map'
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Core Concepts"
+    icon="book"
+    href="/concepts/entry-points"
+  >
+    Deep dive into entry points, output, loaders, and plugins.
+  </Card>
+  
+  <Card
+    title="Asset Management"
+    icon="images"
+    href="/guides/asset-management"
+  >
+    Learn how to load images, fonts, and other assets.
+  </Card>
+  
+  <Card
+    title="Code Splitting"
+    icon="scissors"
+    href="/guides/code-splitting"
+  >
+    Split your code into smaller bundles for better performance.
+  </Card>
+  
+  <Card
+    title="Production Optimization"
+    icon="gauge-high"
+    href="/guides/production"
+  >
+    Optimize your build for production deployment.
+  </Card>
+  
+  <Card
+    title="TypeScript"
+    icon="code"
+    href="/guides/typescript"
+  >
+    Set up webpack with TypeScript.
+  </Card>
+  
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/overview"
+  >
+    Explore all configuration options.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module not found errors">
+    - Check that file paths are correct
+    - Verify files exist in the specified locations
+    - Ensure you're using the correct import syntax
+    - Check `resolve.extensions` in your config
+  </Accordion>
+  
+  <Accordion title="Build is slow">
+    - Use `mode: 'development'` for faster builds
+    - Enable caching: `cache: { type: 'filesystem' }`
+    - Limit source map generation in development
+    - Use `include` and `exclude` in loader rules
+  </Accordion>
+  
+  <Accordion title="Bundle size is too large">
+    - Enable production mode for minification
+    - Use code splitting with dynamic imports
+    - Analyze your bundle with webpack-bundle-analyzer
+    - Remove unused dependencies
+    - Enable tree shaking
+  </Accordion>
+  
+  <Accordion title="Dev server not working">
+    - Check that `webpack-dev-server` is installed
+    - Verify port 8080 is not in use
+    - Check your `devServer` configuration
+    - Try running with `--open` flag
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+**Need more help?** Check out the [webpack documentation](https://webpack.js.org/guides/), join the [Discord community](https://discord.gg/5sxFZPdx2k), or ask on [Stack Overflow](https://stackoverflow.com/questions/tagged/webpack).
 </Note>

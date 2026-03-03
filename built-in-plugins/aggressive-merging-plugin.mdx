@@ -1,0 +1,468 @@
+---
+title: AggressiveMergingPlugin
+description: Aggressively merge chunks to reduce bundle size by combining chunks that provide significant size reduction when merged.
+---
+
+The `AggressiveMergingPlugin` merges chunks based on size reduction benefits, prioritizing combinations that result in the smallest total bundle size. Unlike other merging plugins, it focuses purely on maximizing size reduction through aggressive chunk merging.
+
+## Overview
+
+This plugin operates during the chunk optimization phase and repeatedly merges chunk pairs that provide the best size-to-combined-size ratio until no beneficial merges remain.
+
+## Basic Usage
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.5
+    })
+  ]
+};
+```
+
+## Configuration Options
+
+<ParamField path="minSizeReduce" type="number" default="1.5">
+Minimum size reduction factor required to merge chunks. The factor is calculated as:
+
+```javascript
+improvement = (sizeA + sizeB) / integratedSize
+```
+
+For example, with `minSizeReduce: 1.5`:
+- Two 10 KB chunks that merge into 13 KB: `(10 + 10) / 13 = 1.54` ✅ Will merge
+- Two 10 KB chunks that merge into 15 KB: `(10 + 10) / 15 = 1.33` ❌ Won't merge
+
+**Higher values** = More selective merging, fewer chunks merged
+**Lower values** = More aggressive merging, more chunks merged
+</ParamField>
+
+## How It Works
+
+The plugin uses an iterative optimization strategy:
+
+1. **Identifies async chunks** - Only considers non-initial chunks
+2. **Finds all valid pairs** - Determines which chunks can be integrated
+3. **Calculates improvement** - Computes size reduction factor for each pair
+4. **Sorts by improvement** - Orders pairs by highest improvement factor
+5. **Merges best pair** - Integrates the most beneficial chunk pair
+6. **Repeats** - Continues until no pairs meet the `minSizeReduce` threshold
+
+## Optimization Strategy
+
+### Size Improvement Calculation
+
+For each chunk pair (A, B):
+
+```javascript
+improvement = (sizeA + sizeB) / integratedSize
+```
+
+The higher the improvement factor, the more beneficial the merge:
+
+- **improvement > 2.0**: Excellent (50%+ size reduction)
+- **improvement > 1.5**: Good (33%+ size reduction)  
+- **improvement > 1.2**: Moderate (17%+ size reduction)
+- **improvement < 1.0**: No benefit (size increased)
+
+### Async Chunks Only
+
+The plugin only merges async (lazy-loaded) chunks:
+
+```javascript
+if (chunk.canBeInitial()) continue; // Skip initial chunks
+```
+
+This preserves initial bundle structure while optimizing lazy-loaded code.
+
+## Examples
+
+### Default Configuration
+
+Use default settings for balanced optimization:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin()
+  ]
+};
+```
+
+### Aggressive Merging
+
+Lower threshold for more merging:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.2 // Merge if 20%+ size reduction
+    })
+  ]
+};
+```
+
+### Conservative Merging
+
+Higher threshold for selective merging:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 2.0 // Only merge if 50%+ size reduction
+    })
+  ]
+};
+```
+
+### HTTP/2 Optimization
+
+Combine with dynamic imports:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  entry: './src/index.js',
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.5
+    })
+  ],
+  optimization: {
+    splitChunks: {
+      chunks: 'async',
+      minSize: 10000
+    }
+  }
+};
+```
+
+### Multi-Page Application
+
+```javascript pageA.js
+import(/* webpackChunkName: "feature-a" */ './features/a');
+import(/* webpackChunkName: "feature-b" */ './features/b');
+```
+
+```javascript pageB.js  
+import(/* webpackChunkName: "feature-b" */ './features/b');
+import(/* webpackChunkName: "feature-c" */ './features/c');
+```
+
+```javascript pageC.js
+import(/* webpackChunkName: "feature-a" */ './features/a');
+import(/* webpackChunkName: "feature-c" */ './features/c');
+```
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  entry: {
+    pageA: './pageA',
+    pageB: './pageB',
+    pageC: './pageC'
+  },
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.5
+    })
+  ]
+};
+```
+
+## Use Cases
+
+### Reduce HTTP/2 Overhead
+
+Even with HTTP/2, too many small chunks can cause overhead:
+
+```javascript
+module.exports = {
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.3 // Merge small async chunks
+    })
+  ]
+};
+```
+
+### Optimize Dynamic Imports
+
+When using many lazy-loaded modules:
+
+```javascript app.js
+// Many small dynamic imports
+const routes = [
+  () => import('./routes/home'),
+  () => import('./routes/about'),  
+  () => import('./routes/contact'),
+  () => import('./routes/blog'),
+  // ... many more
+];
+```
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.4 // Merge related routes
+    })
+  ]
+};
+```
+
+### Production Builds
+
+Maximize compression in production:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
+  
+  return {
+    plugins: [
+      isProduction && new webpack.optimize.AggressiveMergingPlugin({
+        minSizeReduce: 1.5
+      })
+    ].filter(Boolean)
+  };
+};
+```
+
+## Interaction with Other Plugins
+
+### With SplitChunksPlugin
+
+Apply after SplitChunksPlugin for further optimization:
+
+```javascript
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'async',
+      minSize: 5000,
+      maxSize: 50000
+    }
+  },
+  plugins: [
+    // AggressiveMergingPlugin merges small async chunks created by SplitChunksPlugin
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.5
+    })
+  ]
+};
+```
+
+### With MinChunkSizePlugin
+
+Use both for comprehensive chunk optimization:
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    // First: merge chunks below minimum size
+    new webpack.optimize.MinChunkSizePlugin({
+      minChunkSize: 10000
+    }),
+    // Then: aggressively merge for size reduction  
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.5
+    })
+  ]
+};
+```
+
+### With LimitChunkCountPlugin
+
+Combine for both size and count optimization:
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    // Merge for size reduction
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.3
+    }),
+    // Then limit total chunks
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 10
+    })
+  ]
+};
+```
+
+## Performance Considerations
+
+### Build Time
+
+- **Iterative algorithm** - Runs until no beneficial merges found
+- **O(n²) worst case** - Compares all chunk pairs
+- **Early termination** - Stops when threshold not met
+
+### Bundle Size Impact
+
+Typical results:
+- **5-15% reduction** in async chunk total size
+- **10-30% fewer** async chunks
+- **Better compression** due to larger chunks
+
+### Runtime Impact
+
+**Benefits:**
+- Fewer network requests
+- Better gzip/brotli compression ratios
+- Reduced chunk loading overhead
+
+**Trade-offs:**
+- Larger individual chunks
+- Potential over-fetching of code
+- Less granular lazy loading
+
+## Best Practices
+
+### Tune minSizeReduce
+
+Start with default and adjust based on needs:
+
+```javascript
+// Very aggressive - many merges
+minSizeReduce: 1.1  // 10% reduction
+
+// Balanced (default) - moderate merging  
+minSizeReduce: 1.5  // 33% reduction
+
+// Conservative - selective merging
+minSizeReduce: 2.0  // 50% reduction
+```
+
+### Monitor Results
+
+Use webpack stats to verify optimization:
+
+```javascript
+module.exports = {
+  stats: {
+    chunks: true,
+    chunkModules: true,
+    optimizationBailout: true
+  }
+};
+```
+
+### Combine with Code Splitting
+
+```javascript
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'async',
+      cacheGroups: {
+        vendor: {
+          test: /node_modules/,
+          priority: 10
+        }
+      }
+    }
+  },
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.5
+    })
+  ]
+};
+```
+
+### Environment-Specific Settings
+
+```javascript
+module.exports = (env, argv) => {
+  const plugins = [];
+  
+  // Only use in production
+  if (argv.mode === 'production') {
+    plugins.push(
+      new webpack.optimize.AggressiveMergingPlugin({
+        minSizeReduce: 1.5
+      })
+    );
+  }
+  
+  return { plugins };
+};
+```
+
+## Common Patterns
+
+### SPA Optimization
+
+```javascript webpack.config.js
+module.exports = {
+  entry: './src/index.js',
+  optimization: {
+    splitChunks: {
+      chunks: 'async'
+    }
+  },
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.4
+    })
+  ]
+};
+```
+
+### Library Bundling
+
+```javascript webpack.config.js
+module.exports = {
+  output: {
+    library: 'MyLib',
+    libraryTarget: 'umd'
+  },
+  plugins: [
+    new webpack.optimize.AggressiveMergingPlugin({
+      minSizeReduce: 1.6 // More conservative for libraries
+    })
+  ]
+};
+```
+
+## Debugging
+
+Enable verbose stats to see merging decisions:
+
+```bash
+webpack --display-chunks --display-modules
+```
+
+Look for chunk merging in the output:
+```
+Chunk {0} merged into chunk {1}
+```
+
+## Related Plugins
+
+- [MinChunkSizePlugin](/built-in-plugins/min-chunk-size-plugin) - Merge chunks below minimum size
+- [LimitChunkCountPlugin](/built-in-plugins/limit-chunk-count-plugin) - Limit total chunk count
+- [SplitChunksPlugin](/built-in-plugins/split-chunks-plugin) - Intelligently split chunks

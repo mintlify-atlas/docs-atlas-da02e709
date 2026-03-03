@@ -1,0 +1,377 @@
+---
+title: Development
+description: Set up an efficient development environment with webpack-dev-server, source maps, and hot module replacement
+---
+
+Optimize your development workflow with webpack's development tools. Learn about source maps, dev server, and hot module replacement.
+
+## Development Mode
+
+Set webpack to development mode for better debugging:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'development'
+};
+```
+
+Development mode provides:
+- Readable output
+- Fast incremental builds
+- Detailed error messages
+- Enabled source maps
+
+## Source Maps
+
+Source maps help you debug bundled code by mapping it back to the original source.
+
+### Configuring Source Maps
+
+<CodeGroup>
+```javascript eval-source-map (Development)
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-source-map'
+};
+// High quality source maps with column mappings
+// Slower rebuild, best for development
+```
+
+```javascript eval-cheap-module-source-map
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-cheap-module-source-map'
+};
+// Fast rebuilds, line-only mappings
+// Good balance for development
+```
+
+```javascript source-map (Production)
+module.exports = {
+  mode: 'production',
+  devtool: 'source-map'
+};
+// Separate .map files
+// Best for production debugging
+```
+
+```javascript hidden-source-map
+module.exports = {
+  mode: 'production',
+  devtool: 'hidden-source-map'
+};
+// No reference in bundle
+// For error reporting services
+```
+</CodeGroup>
+
+<Note>
+  `eval-*` source maps rebuild faster but `source-map` provides the highest quality for debugging.
+</Note>
+
+## Webpack Dev Server
+
+Webpack Dev Server provides live reloading during development.
+
+<Steps>
+  <Step title="Install webpack-dev-server">
+    ```bash
+    npm install --save-dev webpack-dev-server
+    ```
+  </Step>
+
+  <Step title="Configure the dev server">
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      mode: 'development',
+      entry: './src/index.js',
+      devtool: 'eval-source-map',
+      devServer: {
+        static: './dist',
+        hot: true,
+        port: 8080,
+        open: true
+      },
+      output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'dist'),
+        publicPath: '/'
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Add npm script">
+    ```json package.json
+    {
+      "scripts": {
+        "start": "webpack serve",
+        "build": "webpack --mode=production"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Start the server">
+    ```bash
+    npm start
+    ```
+    
+    The server starts at `http://localhost:8080` and watches for changes.
+  </Step>
+</Steps>
+
+## Dev Server Options
+
+<CodeGroup>
+```javascript Basic Configuration
+module.exports = {
+  devServer: {
+    static: './dist',
+    port: 8080,
+    hot: true
+  }
+};
+```
+
+```javascript Multiple Static Directories
+module.exports = {
+  devServer: {
+    static: [
+      {
+        directory: path.join(__dirname, 'dist')
+      },
+      {
+        directory: path.join(__dirname, 'public')
+      }
+    ]
+  }
+};
+```
+
+```javascript Proxy API Requests
+module.exports = {
+  devServer: {
+    static: './dist',
+    proxy: {
+      '/api': 'http://localhost:3000'
+    }
+  }
+};
+```
+
+```javascript Custom Headers
+module.exports = {
+  devServer: {
+    static: './dist',
+    headers: {
+      'X-Custom-Header': 'yes'
+    }
+  }
+};
+```
+</CodeGroup>
+
+## Hot Module Replacement (HMR)
+
+HMR updates modules without a full page reload, preserving application state.
+
+### Enable HMR
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'development',
+  devServer: {
+    hot: true
+  },
+  plugins: [
+    new webpack.HotModuleReplacementPlugin()
+  ]
+};
+```
+
+### HMR API
+
+Handle module updates in your code:
+
+```javascript src/index.js
+import component from './component';
+
+let element = component();
+document.body.appendChild(element);
+
+if (module.hot) {
+  module.hot.accept('./component', () => {
+    // Remove old element
+    document.body.removeChild(element);
+    
+    // Re-import and re-render
+    element = component();
+    document.body.appendChild(element);
+  });
+}
+```
+
+<Tip>
+  CSS modules automatically support HMR with `style-loader`. No additional code needed.
+</Tip>
+
+## Watch Mode
+
+Alternatively, use watch mode without dev server:
+
+```bash
+webpack --watch
+```
+
+Or in your npm scripts:
+
+```json package.json
+{
+  "scripts": {
+    "watch": "webpack --watch",
+    "build": "webpack"
+  }
+}
+```
+
+### Watch Options
+
+```javascript webpack.config.js
+module.exports = {
+  watch: true,
+  watchOptions: {
+    aggregateTimeout: 300,
+    poll: 1000,
+    ignored: /node_modules/
+  }
+};
+```
+
+## Development Server with HTTPS
+
+Enable HTTPS for testing secure features:
+
+```javascript webpack.config.js
+module.exports = {
+  devServer: {
+    static: './dist',
+    https: true
+  }
+};
+```
+
+With custom certificates:
+
+```javascript webpack.config.js
+const fs = require('fs');
+
+module.exports = {
+  devServer: {
+    static: './dist',
+    https: {
+      key: fs.readFileSync('/path/to/server.key'),
+      cert: fs.readFileSync('/path/to/server.crt')
+    }
+  }
+};
+```
+
+## Lazy Compilation
+
+Speed up development builds by compiling modules on demand:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'development',
+  cache: {
+    type: 'filesystem',
+    idleTimeout: 5000
+  },
+  experiments: {
+    lazyCompilation: true
+  },
+  devServer: {
+    hot: true
+  },
+  plugins: [
+    new webpack.HotModuleReplacementPlugin()
+  ]
+};
+```
+
+<Note>
+  Lazy compilation only compiles modules when they're requested by the browser, significantly reducing initial build time.
+</Note>
+
+## Complete Development Configuration
+
+Here's a comprehensive development setup:
+
+```javascript webpack.config.js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'development',
+  entry: './src/index.js',
+  devtool: 'eval-cheap-module-source-map',
+  
+  devServer: {
+    static: './dist',
+    hot: true,
+    port: 8080,
+    open: true,
+    compress: true,
+    historyApiFallback: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      }
+    }
+  },
+  
+  cache: {
+    type: 'filesystem'
+  },
+  
+  output: {
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/',
+    clean: true
+  },
+  
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/index.html'
+    }),
+    new webpack.HotModuleReplacementPlugin()
+  ],
+  
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader']
+      },
+      {
+        test: /\.(png|jpg|svg)$/i,
+        type: 'asset'
+      }
+    ]
+  }
+};
+```
+
+<Tip>
+  Enable `historyApiFallback: true` when using client-side routing (React Router, Vue Router, etc.).
+</Tip>

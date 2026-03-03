@@ -1,0 +1,410 @@
+---
+title: "Installation"
+description: "Install webpack and set up your development environment"
+---
+
+## Prerequisites
+
+Before installing webpack, ensure you have Node.js installed on your system. Webpack requires **Node.js version 10.13.0 or higher**.
+
+<Note>
+We recommend using the latest LTS (Long Term Support) version of Node.js for the best experience.
+</Note>
+
+<Steps>
+  <Step title="Check Node.js version">
+    Verify your Node.js installation:
+    
+    ```bash
+    node -v
+    npm -v
+    ```
+    
+    If Node.js is not installed, download it from [nodejs.org](https://nodejs.org/).
+  </Step>
+</Steps>
+
+## Installation Methods
+
+### Local Installation (Recommended)
+
+Installing webpack locally is the recommended approach for most projects. This ensures that everyone working on your project uses the same webpack version.
+
+<Tabs>
+  <Tab title="npm">
+    ```bash
+    npm install --save-dev webpack webpack-cli
+    ```
+    
+    <Tip>
+    The `--save-dev` flag adds webpack as a development dependency in your `package.json`.
+    </Tip>
+  </Tab>
+  
+  <Tab title="yarn">
+    ```bash
+    yarn add webpack webpack-cli --dev
+    ```
+  </Tab>
+  
+  <Tab title="pnpm">
+    ```bash
+    pnpm add -D webpack webpack-cli
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+**Why install webpack-cli?**
+
+The `webpack-cli` package provides a flexible set of commands for developers to increase speed when setting up a custom webpack project. If you're using webpack v4 or later, you'll need to install the CLI separately.
+</Info>
+
+### Global Installation
+
+While not recommended for production projects, you can install webpack globally for quick experiments or learning:
+
+<Tabs>
+  <Tab title="npm">
+    ```bash
+    npm install --global webpack webpack-cli
+    ```
+  </Tab>
+  
+  <Tab title="yarn">
+    ```bash
+    yarn global add webpack webpack-cli
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+Global installations can cause issues when working on multiple projects with different webpack versions. Always prefer local installation for projects.
+</Warning>
+
+## Verify Installation
+
+After installation, verify webpack is correctly installed:
+
+<CodeGroup>
+```bash Using npx (Recommended)
+npx webpack --version
+```
+
+```bash Using npm scripts
+# Add to package.json scripts:
+# "webpack": "webpack"
+npm run webpack -- --version
+```
+
+```bash Global installation
+webpack --version
+```
+</CodeGroup>
+
+You should see output similar to:
+
+```bash
+webpack 5.105.4
+webpack-cli 6.0.1
+```
+
+## Project Setup
+
+Let's set up a basic webpack project structure:
+
+<Steps>
+  <Step title="Initialize your project">
+    Create a new directory and initialize npm:
+    
+    ```bash
+    mkdir my-webpack-project
+    cd my-webpack-project
+    npm init -y
+    ```
+    
+    This creates a `package.json` file with default values.
+  </Step>
+  
+  <Step title="Install webpack">
+    Install webpack and webpack-cli as development dependencies:
+    
+    ```bash
+    npm install --save-dev webpack webpack-cli
+    ```
+  </Step>
+  
+  <Step title="Create project structure">
+    Set up the recommended directory structure:
+    
+    ```bash
+    mkdir src dist
+    touch src/index.js
+    touch webpack.config.js
+    ```
+    
+    Your project structure should look like:
+    
+    ```
+    my-webpack-project/
+    ├── dist/
+    ├── src/
+    │   └── index.js
+    ├── package.json
+    └── webpack.config.js
+    ```
+  </Step>
+  
+  <Step title="Update package.json">
+    Mark your package as private to prevent accidental publication:
+    
+    ```json package.json
+    {
+      "name": "my-webpack-project",
+      "version": "1.0.0",
+      "private": true,
+      "scripts": {
+        "build": "webpack",
+        "watch": "webpack --watch",
+        "serve": "webpack serve --open"
+      },
+      "devDependencies": {
+        "webpack": "^5.105.4",
+        "webpack-cli": "^6.0.1"
+      }
+    }
+    ```
+    
+    <Note>
+    The `private: true` prevents accidental publishing to npm.
+    </Note>
+  </Step>
+</Steps>
+
+## Additional Packages
+
+Depending on your project needs, you may want to install additional packages:
+
+### Development Server
+
+For a development server with live reloading:
+
+```bash
+npm install --save-dev webpack-dev-server
+```
+
+Then add a serve script to `package.json`:
+
+```json
+{
+  "scripts": {
+    "serve": "webpack serve --open"
+  }
+}
+```
+
+### Common Loaders
+
+Loaders allow webpack to process different file types:
+
+<Tabs>
+  <Tab title="CSS">
+    ```bash
+    npm install --save-dev style-loader css-loader
+    ```
+    
+    Process and inject CSS into your JavaScript bundles.
+  </Tab>
+  
+  <Tab title="TypeScript">
+    ```bash
+    npm install --save-dev typescript ts-loader
+    ```
+    
+    Compile TypeScript to JavaScript.
+  </Tab>
+  
+  <Tab title="Babel">
+    ```bash
+    npm install --save-dev babel-loader @babel/core @babel/preset-env
+    ```
+    
+    Transpile modern JavaScript to browser-compatible code.
+  </Tab>
+  
+  <Tab title="Images">
+    ```bash
+    # No installation needed!
+    # webpack 5 includes Asset Modules for images
+    ```
+    
+    Use webpack's built-in Asset Modules (webpack 5+).
+  </Tab>
+</Tabs>
+
+### Popular Plugins
+
+Plugins extend webpack's functionality:
+
+<CodeGroup>
+```bash HTML Plugin
+npm install --save-dev html-webpack-plugin
+```
+
+```bash Clean Plugin
+# Built into webpack 5!
+# Use output.clean: true in config
+```
+
+```bash CSS Extract Plugin
+npm install --save-dev mini-css-extract-plugin
+```
+
+```bash Copy Plugin
+npm install --save-dev copy-webpack-plugin
+```
+</CodeGroup>
+
+## Configuration File
+
+Create a basic `webpack.config.js` file:
+
+```javascript webpack.config.js
+const path = require('path');
+
+/** @type {import('webpack').Configuration} */
+module.exports = {
+  mode: 'development',
+  entry: './src/index.js',
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  }
+};
+```
+
+<Tip>
+The `@type` JSDoc comment provides TypeScript intellisense in your IDE, even without TypeScript installed.
+</Tip>
+
+## Version Compatibility
+
+Ensure you're using compatible versions of webpack packages:
+
+| Package | Version | Node.js Requirement |
+|---------|---------|--------------------|
+| webpack 5 | ^5.0.0 | >=10.13.0 |
+| webpack-cli 4 | ^4.0.0 | >=10.13.0 |
+| webpack-cli 5 | ^5.0.0 | >=14.15.0 |
+| webpack-dev-server 4 | ^4.0.0 | >=12.13.0 |
+
+<Note>
+Webpack 5 requires Node.js 10.13.0 or higher. Using the latest LTS version is recommended.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Command not found: webpack">
+    If you get a "command not found" error:
+    
+    1. Ensure webpack is installed: `npm list webpack`
+    2. Use `npx webpack` instead of `webpack`
+    3. Or add npm script: `"build": "webpack"` and run `npm run build`
+  </Accordion>
+  
+  <Accordion title="Module not found errors">
+    If you see module resolution errors:
+    
+    1. Verify the module is installed: `npm list <module-name>`
+    2. Check your `webpack.config.js` paths
+    3. Try deleting `node_modules` and `package-lock.json`, then run `npm install`
+  </Accordion>
+  
+  <Accordion title="Version conflicts">
+    If you encounter version compatibility issues:
+    
+    1. Check installed versions: `npm list webpack webpack-cli`
+    2. Update to latest compatible versions: `npm update webpack webpack-cli`
+    3. Or install specific versions: `npm install webpack@5.105.4`
+  </Accordion>
+  
+  <Accordion title="Permission errors">
+    If you get EACCES or permission errors:
+    
+    1. Never use `sudo` with npm
+    2. Fix npm permissions: [npmjs.com/resolving-eacces-permissions-errors](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally)
+    3. Consider using a Node version manager like nvm
+  </Accordion>
+</AccordionGroup>
+
+## Upgrading webpack
+
+To upgrade to the latest version of webpack:
+
+<Steps>
+  <Step title="Check current version">
+    ```bash
+    npm list webpack
+    ```
+  </Step>
+  
+  <Step title="Update to latest version">
+    ```bash
+    npm install --save-dev webpack@latest webpack-cli@latest
+    ```
+  </Step>
+  
+  <Step title="Review migration guides">
+    If upgrading major versions, review the migration guide:
+    - [Webpack 4 to 5 Migration Guide](https://webpack.js.org/migrate/5/)
+  </Step>
+  
+  <Step title="Test your build">
+    ```bash
+    npm run build
+    ```
+    
+    Verify everything works correctly after upgrading.
+  </Step>
+</Steps>
+
+<Warning>
+Major version upgrades may include breaking changes. Always review the changelog and migration guides before upgrading in production projects.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick Start Guide"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Build your first webpack bundle in minutes.
+  </Card>
+  
+  <Card
+    title="Configuration"
+    icon="gear"
+    href="/configuration/overview"
+  >
+    Learn how to configure webpack for your needs.
+  </Card>
+  
+  <Card
+    title="Core Concepts"
+    icon="book"
+    href="/concepts/entry-points"
+  >
+    Understand webpack's fundamental concepts.
+  </Card>
+  
+  <Card
+    title="Getting Started Guide"
+    icon="map"
+    href="/guides/getting-started"
+  >
+    Detailed walkthrough of webpack features.
+  </Card>
+</CardGroup>

@@ -1,0 +1,461 @@
+---
+title: CLI Flags
+description: Complete reference of webpack CLI flags and command-line options
+---
+
+## Overview
+
+Webpack CLI supports a wide range of flags for configuring builds from the command line. All CLI functionality is provided by the webpack-cli package.
+
+<Note>
+  These flags are processed by webpack-cli. The core webpack package delegates all CLI handling to webpack-cli.
+</Note>
+
+## Configuration Flags
+
+### `--config`
+
+Specifies a custom configuration file.
+
+```bash
+webpack --config webpack.production.js
+```
+
+**Type:** `string`  
+**Default:** `webpack.config.js`
+
+### `--config-name`
+
+Selects a specific configuration by name when exporting multiple configurations.
+
+```bash
+webpack --config-name production
+```
+
+**Type:** `string`
+
+### `--merge`
+
+Merges multiple webpack configurations.
+
+```bash
+webpack --config webpack.common.js --config webpack.prod.js --merge
+```
+
+**Type:** `boolean`
+
+## Mode Flags
+
+### `--mode`
+
+Sets the build mode.
+
+```bash
+webpack --mode production
+```
+
+**Type:** `'development' | 'production' | 'none'`  
+**Default:** `'production'`
+
+- **development**: Optimized for build speed and debugging
+- **production**: Optimized for output size and performance
+- **none**: No built-in optimizations
+
+### `--env`
+
+Passes environment variables to the webpack configuration.
+
+```bash
+webpack --env production --env platform=web
+```
+
+**Type:** `string` (can be used multiple times)
+
+Accessible in your configuration:
+
+```javascript
+module.exports = (env) => ({
+  mode: env.production ? 'production' : 'development',
+  // ...
+});
+```
+
+## Entry and Output Flags
+
+### `--entry`
+
+Specifies the entry point(s) for your bundle.
+
+```bash
+webpack --entry ./src/index.js
+```
+
+**Type:** `string`
+
+### `--output-path`
+
+Sets the output directory for bundled files.
+
+```bash
+webpack --output-path ./dist
+```
+
+**Type:** `string`  
+**Default:** `./dist`
+
+### `--output-filename`
+
+Sets the output filename pattern.
+
+```bash
+webpack --output-filename [name].[contenthash].js
+```
+
+**Type:** `string`  
+**Default:** `[name].js`
+
+### `--output-public-path`
+
+Sets the public URL path for output files.
+
+```bash
+webpack --output-public-path /assets/
+```
+
+**Type:** `string`
+
+## Watch Flags
+
+### `--watch`, `-w`
+
+Enables watch mode - rebuilds on file changes.
+
+```bash
+webpack --watch
+```
+
+**Type:** `boolean`
+
+### `--watch-options-stdin`
+
+Stops watching when stdin stream ends.
+
+```bash
+webpack --watch --watch-options-stdin
+```
+
+**Type:** `boolean`
+
+## Development Server Flags
+
+### `serve`
+
+Starts webpack-dev-server.
+
+```bash
+webpack serve
+```
+
+### `--hot`
+
+Enables Hot Module Replacement.
+
+```bash
+webpack serve --hot
+```
+
+**Type:** `boolean`
+
+### `--port`
+
+Sets the development server port.
+
+```bash
+webpack serve --port 3000
+```
+
+**Type:** `number`  
+**Default:** `8080`
+
+### `--open`
+
+Opens the browser after server starts.
+
+```bash
+webpack serve --open
+```
+
+**Type:** `boolean`
+
+## Stats and Output Flags
+
+### `--json`
+
+Outputs build stats as JSON.
+
+```bash
+webpack --json > stats.json
+```
+
+**Type:** `boolean`
+
+### `--stats`
+
+Controls the level of stats output.
+
+```bash
+webpack --stats verbose
+```
+
+**Type:** `'none' | 'errors-only' | 'minimal' | 'normal' | 'detailed' | 'verbose'`  
+**Default:** `'normal'`
+
+### `--progress`
+
+Shows compilation progress.
+
+```bash
+webpack --progress
+```
+
+**Type:** `boolean`
+
+### `--color`, `--no-color`
+
+Enables/disables colored output.
+
+```bash
+webpack --color
+webpack --no-color
+```
+
+**Type:** `boolean`
+
+## Optimization Flags
+
+### `--optimize-minimize`
+
+Enables code minification.
+
+```bash
+webpack --optimize-minimize
+```
+
+**Type:** `boolean`
+
+### `--devtool`
+
+Sets the source map type.
+
+```bash
+webpack --devtool source-map
+```
+
+**Type:** `string | false`  
+**Examples:** `'source-map'`, `'inline-source-map'`, `'eval'`, `'eval-source-map'`
+
+## Performance Flags
+
+### `--profile`
+
+Captures timing information for each module.
+
+```bash
+webpack --profile --json > stats.json
+```
+
+**Type:** `boolean`
+
+### `--bail`
+
+Fails the build on the first error.
+
+```bash
+webpack --bail
+```
+
+**Type:** `boolean`
+
+## Cache Flags
+
+### `--cache`
+
+Enables filesystem caching.
+
+```bash
+webpack --cache
+```
+
+**Type:** `boolean`
+
+### `--no-cache`
+
+Disables caching.
+
+```bash
+webpack --no-cache
+```
+
+**Type:** `boolean`
+
+## Target Flags
+
+### `--target`
+
+Sets the build target environment.
+
+```bash
+webpack --target node
+```
+
+**Type:** `string`  
+**Examples:** `'web'`, `'node'`, `'webworker'`, `'electron-main'`, `'electron-renderer'`
+
+## Module Flags
+
+### `--module-bind`
+
+Binds a loader to a file extension.
+
+```bash
+webpack --module-bind css=style-loader!css-loader
+```
+
+**Type:** `string`
+
+## Help and Info Flags
+
+### `--help`, `-h`
+
+Shows help information.
+
+```bash
+webpack --help
+```
+
+### `--version`, `-v`
+
+Shows webpack and webpack-cli versions.
+
+```bash
+webpack --version
+```
+
+### `info`
+
+Displays environment information.
+
+```bash
+webpack info
+```
+
+Outputs:
+- Operating system
+- Node version
+- npm/yarn/pnpm version
+- Webpack version
+- Webpack-cli version
+
+## Configuration Validation
+
+### `configtest`
+
+Validates your webpack configuration.
+
+```bash
+webpack configtest
+```
+
+Checks for:
+- Syntax errors
+- Invalid configuration options
+- Type mismatches
+
+## Examples
+
+### Development Build
+
+```bash
+webpack --mode development --watch --devtool eval-source-map
+```
+
+### Production Build
+
+```bash
+webpack --mode production --optimize-minimize --progress
+```
+
+### Custom Configuration with Stats
+
+```bash
+webpack --config webpack.custom.js --json --profile > stats.json
+```
+
+### Development Server with HMR
+
+```bash
+webpack serve --mode development --hot --open --port 3000
+```
+
+### Multi-Entry Build
+
+```bash
+webpack --entry ./src/app.js --entry ./src/vendor.js --mode production
+```
+
+### Environment-Specific Build
+
+```bash
+webpack --env production --env api=https://api.prod.example.com
+```
+
+## Combining Flags
+
+Flags can be combined for complex build scenarios:
+
+```bash
+webpack \
+  --mode production \
+  --config webpack.prod.js \
+  --env platform=web \
+  --output-path ./dist/web \
+  --progress \
+  --profile \
+  --json > build-stats.json
+```
+
+## Flag Priority
+
+When configuration comes from multiple sources, priority is:
+
+1. CLI flags (highest priority)
+2. Environment variables
+3. Configuration file
+4. Default values (lowest priority)
+
+## Package Manager Compatibility
+
+Webpack CLI automatically detects your package manager:
+
+- **yarn**: Detected via `yarn.lock`
+- **pnpm**: Detected via `pnpm-lock.yaml`
+- **npm**: Default fallback
+
+This affects auto-installation of webpack-cli if it's missing.
+
+## Related Resources
+
+- [CLI Commands Reference](/api/cli/commands)
+- [Configuration File Reference](/configuration/entry-context)
+- [webpack-cli Documentation](https://github.com/webpack/webpack-cli)
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="CLI Commands" icon="terminal" href="/api/cli/commands">
+    Learn about webpack CLI commands and usage
+  </Card>
+  <Card title="Configuration API" icon="gear" href="/configuration/entry-context">
+    Configure webpack programmatically
+  </Card>
+</CardGroup>

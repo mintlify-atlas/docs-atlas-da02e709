@@ -1,0 +1,406 @@
+---
+title: Caching
+description: Implement long-term caching strategies with content hashes and cache optimization
+---
+
+Optimize browser caching with webpack's hashing strategies. Learn how to implement cache-friendly bundles that update only when content changes.
+
+## Why Caching Matters
+
+Proper caching:
+- Reduces bandwidth usage
+- Speeds up repeat visits
+- Decreases server load
+- Improves user experience
+
+## Output Filenames
+
+Use content hashes to enable long-term caching:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  output: {
+    filename: '[name].[contenthash].js',
+    chunkFilename: '[name].[contenthash].chunk.js',
+    path: path.resolve(__dirname, 'dist'),
+    clean: true
+  }
+};
+```
+
+<Note>
+  The `[contenthash]` placeholder generates a hash based on file content. The filename only changes when the content changes.
+</Note>
+
+## Hash Types
+
+Webpack provides different hash types:
+
+<CodeGroup>
+```javascript contenthash (Recommended)
+module.exports = {
+  output: {
+    filename: '[name].[contenthash].js'
+  }
+};
+// Hash based on file content
+// Best for long-term caching
+```
+
+```javascript chunkhash
+module.exports = {
+  output: {
+    filename: '[name].[chunkhash].js'
+  }
+};
+// Hash based on chunk content
+// Changes when any module in chunk changes
+```
+
+```javascript fullhash
+module.exports = {
+  output: {
+    filename: '[name].[fullhash].js'
+  }
+};
+// Hash of entire compilation
+// All files change together (avoid in production)
+```
+
+```javascript Hash Length
+module.exports = {
+  output: {
+    filename: '[name].[contenthash:8].js'
+  }
+};
+// Use first 8 characters of hash
+```
+</CodeGroup>
+
+<Tip>
+  Use `[contenthash]` for production. It provides the best caching behavior.
+</Tip>
+
+## Extracting Runtime
+
+Separate webpack's runtime code to prevent hash changes:
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'production',
+  entry: {
+    main: './src/index.js'
+  },
+  output: {
+    filename: '[name].[contenthash].js',
+    path: path.resolve(__dirname, 'dist')
+  },
+  optimization: {
+    runtimeChunk: 'single'
+  }
+};
+```
+
+This creates a separate `runtime.[contenthash].js` file.
+
+## Module Identifiers
+
+Stabilize module IDs to prevent unnecessary hash changes:
+
+```javascript webpack.config.js
+module.exports = {
+  optimization: {
+    moduleIds: 'deterministic',
+    runtimeChunk: 'single',
+    splitChunks: {
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all'
+        }
+      }
+    }
+  }
+};
+```
+
+<Note>
+  `deterministic` IDs generate consistent, short IDs for modules. This prevents vendor chunk hash changes when adding new modules.
+</Note>
+
+## Complete Caching Setup
+
+<Steps>
+  <Step title="Configure output with content hashes">
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      mode: 'production',
+      entry: './src/index.js',
+      output: {
+        filename: '[name].[contenthash:8].js',
+        chunkFilename: '[name].[contenthash:8].chunk.js',
+        path: path.resolve(__dirname, 'dist'),
+        clean: true
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Extract runtime and vendor chunks">
+    ```javascript webpack.config.js
+    module.exports = {
+      optimization: {
+        moduleIds: 'deterministic',
+        runtimeChunk: 'single',
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            vendor: {
+              test: /[\\/]node_modules[\\/]/,
+              name: 'vendors',
+              priority: 10
+            }
+          }
+        }
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Configure asset module filenames">
+    ```javascript webpack.config.js
+    module.exports = {
+      output: {
+        assetModuleFilename: 'assets/[hash][ext]'
+      },
+      module: {
+        rules: [
+          {
+            test: /\.(png|jpg|svg)$/,
+            type: 'asset'
+          }
+        ]
+      }
+    };
+    ```
+  </Step>
+</Steps>
+
+## Filesystem Cache
+
+Enable persistent caching to speed up rebuilds:
+
+```javascript webpack.config.js
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  cache: {
+    type: 'filesystem',
+    cacheDirectory: path.resolve(__dirname, '.cache'),
+    buildDependencies: {
+      config: [__filename]
+    }
+  }
+};
+```
+
+<CodeGroup>
+```javascript Basic Filesystem Cache
+module.exports = {
+  cache: {
+    type: 'filesystem'
+  }
+};
+```
+
+```javascript Custom Cache Directory
+module.exports = {
+  cache: {
+    type: 'filesystem',
+    cacheDirectory: path.resolve(__dirname, '.cache')
+  }
+};
+```
+
+```javascript With Build Dependencies
+module.exports = {
+  cache: {
+    type: 'filesystem',
+    buildDependencies: {
+      config: [__filename],
+      // Invalidate cache when these files change
+    }
+  }
+};
+```
+
+```javascript Memory Cache (Development)
+module.exports = {
+  mode: 'development',
+  cache: {
+    type: 'memory'
+  }
+};
+```
+</CodeGroup>
+
+<Tip>
+  Add `.cache` to your `.gitignore`. Filesystem cache dramatically improves rebuild performance.
+</Tip>
+
+## CSS Caching
+
+Extract CSS with content hashes:
+
+```javascript webpack.config.js
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: [MiniCssExtractPlugin.loader, 'css-loader']
+      }
+    ]
+  },
+  plugins: [
+    new MiniCssExtractPlugin({
+      filename: '[name].[contenthash:8].css',
+      chunkFilename: '[name].[contenthash:8].chunk.css'
+    })
+  ]
+};
+```
+
+## Cache Control Headers
+
+Configure your server to set proper cache headers:
+
+```nginx nginx.conf
+location ~* \.[0-9a-f]{8}\.(js|css)$ {
+  # Files with content hash - cache for 1 year
+  add_header Cache-Control "public, max-age=31536000, immutable";
+}
+
+location ~* \.(js|css)$ {
+  # Files without hash - don't cache
+  add_header Cache-Control "no-cache";
+}
+```
+
+## Testing Cache Behavior
+
+Verify your caching setup:
+
+<Steps>
+  <Step title="Initial build">
+    ```bash
+    npm run build
+    ls dist/
+    ```
+    
+    Note the filenames with hashes.
+  </Step>
+
+  <Step title="Make a change">
+    Modify a source file and rebuild:
+    
+    ```bash
+    npm run build
+    ls dist/
+    ```
+  </Step>
+
+  <Step title="Compare hashes">
+    Only the changed file and its dependents should have new hashes. Vendor bundle should remain unchanged.
+  </Step>
+</Steps>
+
+## Production Configuration
+
+Complete caching-optimized configuration:
+
+```javascript webpack.config.js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  
+  output: {
+    filename: '[name].[contenthash:8].js',
+    chunkFilename: '[name].[contenthash:8].chunk.js',
+    assetModuleFilename: 'assets/[hash:8][ext]',
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/',
+    clean: true
+  },
+  
+  cache: {
+    type: 'filesystem',
+    cacheDirectory: path.resolve(__dirname, '.cache'),
+    buildDependencies: {
+      config: [__filename]
+    }
+  },
+  
+  optimization: {
+    moduleIds: 'deterministic',
+    runtimeChunk: 'single',
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          priority: 10,
+          reuseExistingChunk: true
+        },
+        common: {
+          minChunks: 2,
+          priority: 5,
+          reuseExistingChunk: true
+        }
+      }
+    }
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: [MiniCssExtractPlugin.loader, 'css-loader']
+      },
+      {
+        test: /\.(png|jpg|svg)$/,
+        type: 'asset'
+      }
+    ]
+  },
+  
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './src/index.html'
+    }),
+    new MiniCssExtractPlugin({
+      filename: '[name].[contenthash:8].css',
+      chunkFilename: '[name].[contenthash:8].chunk.css'
+    })
+  ]
+};
+```
+
+<Note>
+  This configuration ensures maximum cache efficiency: vendor code, runtime, and application code are separated with stable hashes.
+</Note>

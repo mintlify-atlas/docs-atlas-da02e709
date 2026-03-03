@@ -1,0 +1,312 @@
+---
+title: ProvidePlugin
+description: Automatically load modules instead of having to import or require them everywhere
+---
+
+Automatically loads modules instead of having to import or require them everywhere. Useful for making variables globally available in modules.
+
+## Usage
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.ProvidePlugin({
+      $: 'jquery',
+      jQuery: 'jquery'
+    })
+  ]
+};
+```
+
+Now in any module:
+
+```js
+// No import needed
+$('#item'); // works
+jQuery('.item'); // works
+```
+
+Webpack will automatically insert:
+
+```js
+import $ from 'jquery';
+import jQuery from 'jquery';
+```
+
+## Constructor
+
+```js
+new webpack.ProvidePlugin(definitions);
+```
+
+**Parameters:**
+
+- `definitions` (Object): An object mapping identifiers to module names or module paths
+
+## Options
+
+<ParamField path="definitions" type="object" required>
+  An object where keys are identifiers and values are module specifiers.
+
+  Values can be:
+  - **String**: The module name
+  - **Array**: Module name and exported member(s)
+
+  ```js
+  new webpack.ProvidePlugin({
+    identifier: 'module',
+    identifier: ['module', 'property'],
+    identifier: ['module', 'property', 'subproperty']
+  });
+  ```
+</ParamField>
+
+## Module Resolution
+
+### Default Export
+
+```js
+new webpack.ProvidePlugin({
+  // Import the default export
+  _: 'lodash'
+});
+```
+
+Equivalent to:
+```js
+import _ from 'lodash';
+```
+
+### Named Export
+
+```js
+new webpack.ProvidePlugin({
+  // Import a named export
+  map: ['lodash', 'map']
+});
+```
+
+Equivalent to:
+```js
+import { map } from 'lodash';
+```
+
+### Nested Properties
+
+```js
+new webpack.ProvidePlugin({
+  // Access nested properties
+  'Promise.resolve': ['es6-promise', 'Promise', 'resolve'],
+  'Promise.all': ['es6-promise', 'Promise', 'all']
+});
+```
+
+## Examples
+
+### jQuery
+
+Make jQuery available globally:
+
+```js
+new webpack.ProvidePlugin({
+  $: 'jquery',
+  jQuery: 'jquery',
+  'window.jQuery': 'jquery'
+});
+```
+
+Now you can use `$`, `jQuery`, or `window.jQuery` in any module without importing.
+
+### Lodash Utilities
+
+```js
+new webpack.ProvidePlugin({
+  _map: ['lodash', 'map'],
+  _filter: ['lodash', 'filter'],
+  _reduce: ['lodash', 'reduce']
+});
+```
+
+Usage:
+```js
+// No import needed
+const doubled = _map([1, 2, 3], n => n * 2);
+const evens = _filter([1, 2, 3, 4], n => n % 2 === 0);
+```
+
+### React
+
+Automatically import React in JSX files:
+
+```js
+new webpack.ProvidePlugin({
+  React: 'react'
+});
+```
+
+Now JSX works without explicit React imports:
+```jsx
+// No need for: import React from 'react';
+function Component() {
+  return <div>Hello</div>;
+}
+```
+
+### Polyfills
+
+Provide polyfills automatically:
+
+```js
+new webpack.ProvidePlugin({
+  Promise: 'es6-promise-promise',
+  fetch: 'whatwg-fetch'
+});
+```
+
+### Process
+
+Provide the process variable:
+
+```js
+new webpack.ProvidePlugin({
+  process: 'process/browser'
+});
+```
+
+### Buffer
+
+```js
+new webpack.ProvidePlugin({
+  Buffer: ['buffer', 'Buffer']
+});
+```
+
+### Custom Utilities
+
+```js
+new webpack.ProvidePlugin({
+  utils: path.resolve(__dirname, 'src/utils'),
+  api: path.resolve(__dirname, 'src/api')
+});
+```
+
+### Multiple Libraries
+
+```js
+new webpack.ProvidePlugin({
+  // jQuery
+  $: 'jquery',
+  jQuery: 'jquery',
+  
+  // Lodash utilities
+  _: 'lodash',
+  _map: ['lodash', 'map'],
+  _filter: ['lodash', 'filter'],
+  
+  // React
+  React: 'react',
+  
+  // Custom
+  moment: 'moment',
+  axios: 'axios'
+});
+```
+
+## Property Access
+
+For identifiers with dots (property access):
+
+```js
+new webpack.ProvidePlugin({
+  'window.jQuery': 'jquery',
+  'jQuery.fn': ['jquery', 'fn']
+});
+```
+
+This makes `window.jQuery` and `jQuery.fn` available globally.
+
+## Tree Shaking
+
+The ProvidePlugin is tree-shaking friendly. If a provided identifier is never used, it won't be included in the bundle:
+
+```js
+new webpack.ProvidePlugin({
+  _: 'lodash',  // Only included if actually used
+  $: 'jquery'   // Only included if actually used
+});
+```
+
+## Important Notes
+
+1. **Scope**: The ProvidePlugin only affects free variables (identifiers not bound in the current scope)
+
+   ```js
+   // $ is provided globally
+   $('.item'); // ✓ Works
+   
+   function test() {
+     const $ = 'local';  // Local variable shadows global
+     $('.item');  // ✗ Uses local $, not provided jQuery
+   }
+   ```
+
+2. **Module Side Effects**: The provided module is only imported when the identifier is used
+
+3. **CommonJS**: Works with both ESM and CommonJS modules
+
+4. **Multiple Identifiers**: You can provide multiple identifiers for the same module:
+   ```js
+   new webpack.ProvidePlugin({
+     $: 'jquery',
+     jQuery: 'jquery',
+     'window.$': 'jquery',
+     'window.jQuery': 'jquery'
+   });
+   ```
+
+5. **Absolute Paths**: You can use absolute paths to provide local modules:
+   ```js
+   new webpack.ProvidePlugin({
+     MyModule: path.resolve(__dirname, 'src/my-module')
+   });
+   ```
+
+## Comparison with Imports
+
+### Without ProvidePlugin
+
+```js
+// file1.js
+import $ from 'jquery';
+$('.item').show();
+
+// file2.js
+import $ from 'jquery';
+$('.item').hide();
+
+// file3.js
+import $ from 'jquery';
+$('.item').toggle();
+```
+
+### With ProvidePlugin
+
+```js
+// webpack.config.js
+new webpack.ProvidePlugin({
+  $: 'jquery'
+});
+
+// file1.js
+$('.item').show();
+
+// file2.js
+$('.item').hide();
+
+// file3.js
+$('.item').toggle();
+```
+
+No imports needed in individual files!

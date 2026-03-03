@@ -1,0 +1,326 @@
+---
+title: LimitChunkCountPlugin
+description: Control the maximum number of chunks in your webpack build by merging chunks to stay under a specified limit.
+---
+
+The `LimitChunkCountPlugin` limits the number of chunks in your build by merging chunks when the total count exceeds a specified maximum. This is useful for optimizing HTTP/1.1 deployments or reducing the overhead of too many small chunks.
+
+## Overview
+
+This plugin operates during the chunk optimization phase and intelligently merges chunks to stay within the configured limit while minimizing size overhead.
+
+## Basic Usage
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 5
+    })
+  ]
+};
+```
+
+## Configuration Options
+
+<ParamField path="maxChunks" type="number" required>
+The maximum number of chunks allowed. When the total number of chunks exceeds this value, the plugin will merge chunks until the limit is met.
+
+**Minimum value**: 1
+</ParamField>
+
+<ParamField path="chunkOverhead" type="number" default="10000">
+Additional overhead in bytes added to each chunk when calculating sizes. This accounts for webpack runtime overhead.
+</ParamField>
+
+<ParamField path="entryChunkMultiplicator" type="number" default="10">
+Multiplier applied to entry chunk sizes when calculating integration benefits. Higher values make entry chunks less likely to be merged.
+</ParamField>
+
+## How It Works
+
+The plugin uses a sophisticated algorithm to determine which chunks to merge:
+
+1. **Identifies chunk combinations** - Finds all pairs of chunks that can be merged
+2. **Calculates benefits** - Computes size reduction for each possible merge
+3. **Sorts combinations** - Orders by:
+   - Largest size benefit (primary)
+   - Smallest combined size (secondary)
+   - Deterministic position (for consistency)
+4. **Merges chunks** - Repeatedly merges the best combination until `maxChunks` is reached
+5. **Updates combinations** - Recalculates affected combinations after each merge
+
+## Optimization Strategy
+
+### Size Calculation
+
+For each chunk pair, the plugin calculates:
+
+```javascript
+sizeDiff = sizeA + sizeB - integratedSize
+```
+
+The pair with the highest `sizeDiff` is merged first, as it provides the most benefit.
+
+### Multi-Layer Sorting
+
+The plugin uses a lazy bucket-sorted data structure with 4 layers:
+
+1. **Layer 1**: Ordered by largest size benefit
+2. **Layer 2**: Ordered by smallest combined size
+3. **Layer 3**: Ordered by position difference (deterministic)
+4. **Layer 4**: Ordered by absolute position (deterministic)
+
+This ensures optimal merging decisions while maintaining build determinism.
+
+## Examples
+
+### HTTP/1.1 Optimization
+
+For HTTP/1.1 deployments, limit chunks to reduce connection overhead:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  entry: {
+    app: './src/index.js'
+  },
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 5 // Limit to 5 chunks total
+    })
+  ]
+};
+```
+
+### Single Chunk Bundle
+
+Create a single bundle by setting `maxChunks` to 1:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  entry: './src/index.js',
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 1 // Merge everything into one chunk
+    })
+  ]
+};
+```
+
+### Progressive Chunk Reduction
+
+Combine with code splitting for controlled chunking:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  entry: {
+    main: './src/index.js',
+    vendor: './src/vendor.js'
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      maxSize: 100000
+    }
+  },
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 10 // Allow up to 10 chunks after splitting
+    })
+  ]
+};
+```
+
+### Development Build Optimization
+
+Speed up development builds by limiting chunks:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'development',
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 1 // Single chunk for faster builds
+    })
+  ]
+};
+```
+
+## Use Cases
+
+### HTTP/1.1 Environments
+
+HTTP/1.1 has limited concurrent connections (typically 6 per domain). Fewer chunks mean:
+- Faster initial page load
+- Reduced connection overhead
+- Better performance on slower networks
+
+```javascript
+plugins: [
+  new webpack.optimize.LimitChunkCountPlugin({
+    maxChunks: 6 // Match browser connection limit
+  })
+]
+```
+
+### Server-Side Rendering
+
+SSR applications benefit from fewer chunks:
+
+```javascript
+module.exports = {
+  target: 'node',
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 1 // Single server bundle
+    })
+  ]
+};
+```
+
+### Build Performance
+
+Reduce build time in development:
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-source-map',
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 1
+    })
+  ]
+};
+```
+
+## Interaction with Other Plugins
+
+### With SplitChunksPlugin
+
+Applied after SplitChunksPlugin to control final chunk count:
+
+```javascript
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /node_modules/,
+          name: 'vendor'
+        }
+      }
+    }
+  },
+  plugins: [
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 5 // Merge SplitChunks output if needed
+    })
+  ]
+};
+```
+
+### With MinChunkSizePlugin
+
+Combine both for comprehensive chunk optimization:
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.optimize.MinChunkSizePlugin({
+      minChunkSize: 10000 // Merge small chunks
+    }),
+    new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 8 // Then limit total count
+    })
+  ]
+};
+```
+
+## Performance Considerations
+
+### Build Time
+
+- **Algorithm complexity**: O(n²) where n = number of chunks
+- **Lazy sorting**: Only sorts accessed buckets for efficiency
+- **Incremental updates**: Recalculates only affected combinations
+
+### When to Use
+
+**Good use cases:**
+- HTTP/1.1 deployments
+- Server-side rendering
+- Development builds
+- Simple applications
+
+**Avoid when:**
+- Using HTTP/2 (parallel loading benefits from more chunks)
+- Need fine-grained caching control
+- Large applications with dynamic imports
+
+## Best Practices
+
+### HTTP/2 vs HTTP/1.1
+
+```javascript
+const isHTTP2 = process.env.HTTP_VERSION === '2';
+
+module.exports = {
+  plugins: [
+    // Only limit chunks for HTTP/1.1
+    !isHTTP2 && new webpack.optimize.LimitChunkCountPlugin({
+      maxChunks: 5
+    })
+  ].filter(Boolean)
+};
+```
+
+### Environment-Specific Configuration
+
+```javascript
+module.exports = (env, argv) => {
+  const isDevelopment = argv.mode === 'development';
+  
+  return {
+    plugins: [
+      isDevelopment && new webpack.optimize.LimitChunkCountPlugin({
+        maxChunks: 1 // Single chunk in development
+      })
+    ].filter(Boolean)
+  };
+};
+```
+
+### Monitoring Chunk Count
+
+Use webpack stats to monitor chunk optimization:
+
+```javascript
+module.exports = {
+  stats: {
+    chunks: true,
+    chunkModules: true
+  }
+};
+```
+
+## Related Plugins
+
+- [MinChunkSizePlugin](/built-in-plugins/min-chunk-size-plugin) - Ensure minimum chunk size
+- [AggressiveMergingPlugin](/built-in-plugins/aggressive-merging-plugin) - Aggressively merge chunks
+- [SplitChunksPlugin](/built-in-plugins/split-chunks-plugin) - Split chunks intelligently

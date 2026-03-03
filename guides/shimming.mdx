@@ -1,0 +1,501 @@
+---
+title: Shimming
+description: Make legacy code and global dependencies work with webpack using shims and polyfills
+---
+
+Shimming helps integrate legacy libraries and global dependencies into webpack. Learn how to work with older code that doesn't use module systems.
+
+## What is Shimming?
+
+Shimming bridges the gap between:
+- Legacy code expecting global variables
+- Libraries without module support
+- Code requiring polyfills
+- Dependencies with implicit globals
+
+## ProvidePlugin
+
+Automatically load modules when variables are used:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.ProvidePlugin({
+      $: 'jquery',
+      jQuery: 'jquery',
+      _: 'lodash'
+    })
+  ]
+};
+```
+
+Now use without importing:
+
+```javascript src/index.js
+// No import needed - webpack provides it automatically
+$('#app').text('Hello');
+
+const array = [1, 2, 3];
+console.log(_.map(array, n => n * 2));
+```
+
+<Note>
+  Webpack automatically adds `import` statements when it encounters these variables.
+</Note>
+
+## Providing Specific Exports
+
+Provide individual functions from modules:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.ProvidePlugin({
+      join: ['lodash', 'join'],
+      map: ['lodash', 'map']
+    })
+  ]
+};
+```
+
+Use directly:
+
+```javascript src/index.js
+const result = join(['a', 'b', 'c'], '-');
+// Equivalent to: import { join } from 'lodash';
+```
+
+## Global Exports
+
+Expose modules to the global scope:
+
+<Steps>
+  <Step title="Install exports-loader">
+    ```bash
+    npm install --save-dev exports-loader
+    ```
+  </Step>
+
+  <Step title="Configure for specific library">
+    ```javascript webpack.config.js
+    module.exports = {
+      module: {
+        rules: [
+          {
+            test: require.resolve('./src/legacy-library.js'),
+            use: 'exports-loader?type=commonjs&exports=libraryName'
+          }
+        ]
+      }
+    };
+    ```
+  </Step>
+</Steps>
+
+## Global Imports
+
+Provide globals to modules that expect them:
+
+<Steps>
+  <Step title="Install imports-loader">
+    ```bash
+    npm install --save-dev imports-loader
+    ```
+  </Step>
+
+  <Step title="Configure imports">
+    ```javascript webpack.config.js
+    module.exports = {
+      module: {
+        rules: [
+          {
+            test: /legacy-module\.js$/,
+            use: [
+              {
+                loader: 'imports-loader',
+                options: {
+                  type: 'commonjs',
+                  imports: [
+                    'default jquery $'
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    };
+    ```
+  </Step>
+</Steps>
+
+<CodeGroup>
+```javascript Single Import
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /example\.js$/,
+        use: 'imports-loader?imports=default|jquery|$'
+      }
+    ]
+  }
+};
+```
+
+```javascript Multiple Imports
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /example\.js$/,
+        use: [
+          {
+            loader: 'imports-loader',
+            options: {
+              imports: [
+                'default jquery $',
+                'default lodash _'
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+};
+```
+</CodeGroup>
+
+## Externals
+
+Exclude dependencies from bundles and load from CDN:
+
+```javascript webpack.config.js
+module.exports = {
+  externals: {
+    jquery: 'jQuery',
+    lodash: '_',
+    react: 'React',
+    'react-dom': 'ReactDOM'
+  }
+};
+```
+
+Load from CDN:
+
+```html index.html
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+  </head>
+  <body>
+    <script src="bundle.js"></script>
+  </body>
+</html>
+```
+
+<Note>
+  The key is the module name as imported, the value is the global variable name.
+</Note>
+
+### Advanced Externals
+
+<CodeGroup>
+```javascript Object Configuration
+module.exports = {
+  externals: {
+    subtract: {
+      root: 'subtract',
+      commonjs: './subtract',
+      commonjs2: './subtract',
+      amd: 'subtract'
+    }
+  }
+};
+```
+
+```javascript Function Configuration
+module.exports = {
+  externals: [
+    function({ context, request }, callback) {
+      if (/^yourregex$/.test(request)) {
+        return callback(null, 'commonjs ' + request);
+      }
+      callback();
+    }
+  ]
+};
+```
+
+```javascript RegExp Configuration
+module.exports = {
+  externals: [
+    /^(jquery|\$)$/i,
+    /^lodash$/
+  ]
+};
+```
+</CodeGroup>
+
+## Polyfills
+
+Add polyfills for older browsers:
+
+### Manual Polyfill Import
+
+```javascript src/index.js
+import 'core-js/stable';
+import 'regenerator-runtime/runtime';
+
+// Your application code
+const app = async () => {
+  const data = await fetch('/api/data');
+  console.log(data);
+};
+
+app();
+```
+
+### ProvidePlugin for Polyfills
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+const path = require('path');
+
+module.exports = {
+  entry: './src/index.js',
+  plugins: [
+    new webpack.ProvidePlugin({
+      Promise: ['es6-promise', 'Promise'],
+      fetch: 'whatwg-fetch'
+    })
+  ]
+};
+```
+
+## this Context
+
+Change `this` context in modules:
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: [
+          {
+            loader: 'imports-loader',
+            options: {
+              wrapper: 'window'
+            }
+          }
+        ]
+      }
+    ]
+  }
+};
+```
+
+## Shimming Legacy Libraries
+
+Complete example for jQuery and Bootstrap:
+
+<Steps>
+  <Step title="Install dependencies">
+    ```bash
+    npm install jquery bootstrap
+    npm install --save-dev imports-loader exports-loader
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    ```javascript webpack.config.js
+    const webpack = require('webpack');
+    
+    module.exports = {
+      plugins: [
+        new webpack.ProvidePlugin({
+          $: 'jquery',
+          jQuery: 'jquery',
+          'window.jQuery': 'jquery'
+        })
+      ]
+    };
+    ```
+  </Step>
+
+  <Step title="Import Bootstrap">
+    ```javascript src/index.js
+    import 'bootstrap';
+    import 'bootstrap/dist/css/bootstrap.min.css';
+    
+    // Use Bootstrap components
+    $('.dropdown-toggle').dropdown();
+    ```
+  </Step>
+</Steps>
+
+## Script Loader
+
+Execute scripts in global context:
+
+```bash
+npm install --save-dev script-loader
+```
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /legacy-script\.js$/,
+        use: 'script-loader'
+      }
+    ]
+  }
+};
+```
+
+<Note>
+  Script loader executes code in global scope. Use sparingly for truly legacy code.
+</Note>
+
+## Environment Variables
+
+Provide environment-specific values:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env.API_URL': JSON.stringify('https://api.example.com'),
+      PRODUCTION: JSON.stringify(true),
+      VERSION: JSON.stringify('1.0.0')
+    })
+  ]
+};
+```
+
+Use in code:
+
+```javascript src/config.js
+const apiUrl = process.env.API_URL;
+
+if (PRODUCTION) {
+  console.log('Running in production');
+}
+
+console.log('Version:', VERSION);
+```
+
+<Tip>
+  DefinePlugin performs direct text replacement. Always use `JSON.stringify()` for string values.
+</Tip>
+
+## Complete Shimming Example
+
+Production configuration with shimming:
+
+```javascript webpack.config.js
+const webpack = require('webpack');
+const path = require('path');
+
+module.exports = {
+  mode: 'production',
+  entry: './src/index.js',
+  
+  output: {
+    filename: 'bundle.js',
+    path: path.resolve(__dirname, 'dist')
+  },
+  
+  module: {
+    rules: [
+      {
+        test: /legacy-library\.js$/,
+        use: [
+          {
+            loader: 'imports-loader',
+            options: {
+              imports: [
+                'default jquery $'
+              ]
+            }
+          },
+          {
+            loader: 'exports-loader',
+            options: {
+              type: 'commonjs',
+              exports: 'legacyLib'
+            }
+          }
+        ]
+      }
+    ]
+  },
+  
+  plugins: [
+    new webpack.ProvidePlugin({
+      $: 'jquery',
+      jQuery: 'jquery',
+      _: 'lodash',
+      Promise: ['es6-promise', 'Promise']
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      PRODUCTION: true
+    })
+  ],
+  
+  externals: {
+    // Load these from CDN
+    react: 'React',
+    'react-dom': 'ReactDOM'
+  }
+};
+```
+
+## Troubleshooting
+
+### Module Not Found
+
+If ProvidePlugin can't find a module:
+
+```javascript
+module.exports = {
+  resolve: {
+    alias: {
+      jquery: path.resolve(__dirname, 'node_modules/jquery/dist/jquery.js')
+    }
+  },
+  plugins: [
+    new webpack.ProvidePlugin({
+      $: 'jquery'
+    })
+  ]
+};
+```
+
+### Global Variable Conflicts
+
+Prevent conflicts with noConflict:
+
+```javascript src/index.js
+import $ from 'jquery';
+window.$ = $.noConflict(true);
+```
+
+<Note>
+  Modern libraries typically support ES6 modules. Use shimming only when necessary for legacy code.
+</Note>

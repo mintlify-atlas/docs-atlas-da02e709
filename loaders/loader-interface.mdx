@@ -1,0 +1,685 @@
+---
+title: Loader Interface
+description: Complete API reference for the webpack loader context
+---
+
+## The Loader Context
+
+The loader context represents the `this` context available inside a loader function. It provides access to methods and properties that allow loaders to interact with webpack's compilation process.
+
+```javascript
+module.exports = function(source, sourceMap, meta) {
+  // 'this' is the loader context
+  const options = this.getOptions();
+  this.addDependency('./some-file.js');
+  return transformedSource;
+};
+```
+
+## Properties
+
+### `this.version`
+
+**Type:** `number`
+
+The version of the loader API. Currently `2`.
+
+```javascript
+if (this.version >= 2) {
+  // Use loader API v2 features
+}
+```
+
+### `this.context`
+
+**Type:** `string`
+
+The directory of the module. Can be used as context for resolving other stuff.
+
+```javascript
+// If the resource is /abc/src/module.js
+console.log(this.context); // '/abc/src'
+```
+
+### `this.request`
+
+**Type:** `string`
+
+The resolved request string.
+
+```javascript
+// Example: '/abc/loader1.js?xyz!/abc/node_modules/loader2/index.js!/abc/resource.js?rrr'
+```
+
+### `this.resource`
+
+**Type:** `string`
+
+The resource file path with query and fragment.
+
+```javascript
+// Example: '/abc/resource.js?query#hash'
+```
+
+### `this.resourcePath`
+
+**Type:** `string`
+
+The resource file path.
+
+```javascript
+// Example: '/abc/resource.js'
+```
+
+### `this.resourceQuery`
+
+**Type:** `string`
+
+The query of the resource.
+
+```javascript
+// Example: '?query'
+```
+
+### `this.resourceFragment`
+
+**Type:** `string`
+
+The fragment of the resource.
+
+```javascript
+// Example: '#hash'
+```
+
+### `this.rootContext`
+
+**Type:** `string`
+
+The root context of the webpack compilation. Usually the project root directory.
+
+```javascript
+console.log(this.rootContext); // '/Users/username/my-project'
+```
+
+### `this.sourceMap`
+
+**Type:** `boolean`
+
+Indicates whether source maps should be generated.
+
+```javascript
+if (this.sourceMap) {
+  // Generate source map
+  return { code, map };
+}
+```
+
+### `this.mode`
+
+**Type:** `'development' | 'production' | 'none'`
+
+The webpack mode.
+
+```javascript
+if (this.mode === 'development') {
+  // Add development-only transforms
+}
+```
+
+### `this.target`
+
+**Type:** `string`
+
+Target of compilation. Passed from the webpack configuration.
+
+```javascript
+if (this.target === 'node') {
+  // Apply Node.js specific transforms
+}
+```
+
+### `this.webpack`
+
+**Type:** `boolean`
+
+Always `true` in webpack loaders. Used to identify webpack environment.
+
+```javascript
+if (this.webpack) {
+  // Use webpack-specific features
+}
+```
+
+### `this.hot`
+
+**Type:** `boolean`
+
+HMR is enabled for this module.
+
+```javascript
+if (this.hot) {
+  // Add HMR runtime code
+}
+```
+
+### `this.data`
+
+**Type:** `any`
+
+A data object shared between the pitch and normal execution. Useful for sharing state.
+
+```javascript
+module.exports.pitch = function(remaining, preceding, data) {
+  data.value = 42;
+};
+
+module.exports = function(source) {
+  console.log(this.data.value); // 42
+};
+```
+
+### `this.loaders`
+
+**Type:** `LoaderItem[]`
+
+An array of all the loaders. Writeable in the pitch phase.
+
+```javascript
+interface LoaderItem {
+  request: string;
+  path: string;
+  query: string;
+  fragment: string;
+  options: any;
+  ident: string;
+  normal: Function | undefined;
+  pitch: Function | undefined;
+  raw: boolean | undefined;
+  data: any;
+  pitchExecuted: boolean;
+  normalExecuted: boolean;
+}
+```
+
+### `this.loaderIndex`
+
+**Type:** `number`
+
+The index in the loaders array of the current loader.
+
+```javascript
+console.log(this.loaderIndex); // 0, 1, 2, ...
+```
+
+## Methods
+
+### `this.getOptions(schema?)`
+
+Extracts loader options from the configuration.
+
+**Parameters:**
+- `schema` (optional): JSON schema for validation
+
+**Returns:** `object`
+
+```javascript
+const schema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string' }
+  }
+};
+
+const options = this.getOptions(schema);
+```
+
+### `this.async()`
+
+Tells webpack that this loader will be called asynchronously. Returns a callback function.
+
+**Returns:** `(err: Error | null, content: string | Buffer, sourceMap?: SourceMap, meta?: any) => void`
+
+```javascript
+module.exports = function(source) {
+  const callback = this.async();
+  
+  someAsyncOperation(source, (err, result) => {
+    callback(err, result);
+  });
+};
+```
+
+### `this.callback()`
+
+A function that can be called synchronously or asynchronously to return multiple results.
+
+**Signature:** `(err: Error | null, content: string | Buffer, sourceMap?: SourceMap, meta?: any) => void`
+
+```javascript
+module.exports = function(source) {
+  this.callback(null, transformedSource, sourceMap, meta);
+  return; // Return undefined when calling callback
+};
+```
+
+### `this.addDependency(file)`
+
+Adds a file as a dependency of the loader result. The file will be watched and trigger a rebuild on change.
+
+**Parameters:**
+- `file`: Absolute path to the file
+
+```javascript
+this.addDependency(path.resolve(this.context, './config.json'));
+```
+
+**Alias:** `this.dependency(file)`
+
+### `this.addContextDependency(directory)`
+
+Adds a directory as a dependency. All files in the directory will be watched.
+
+**Parameters:**
+- `directory`: Absolute path to the directory
+
+```javascript
+this.addContextDependency(path.resolve(this.context, './i18n'));
+```
+
+### `this.addMissingDependency(file)`
+
+Adds a missing file as a dependency. Webpack will start watching it and trigger a rebuild when it's created.
+
+**Parameters:**
+- `file`: Absolute path to the file
+
+```javascript
+this.addMissingDependency(path.resolve(this.context, './optional.js'));
+```
+
+### `this.addBuildDependency(file)`
+
+Adds a file as a build dependency. Unlike `addDependency`, this is tracked at the build level.
+
+**Parameters:**
+- `file`: Absolute path to the file
+
+```javascript
+this.addBuildDependency(require.resolve('my-loader'));
+```
+
+### `this.clearDependencies()`
+
+Removes all dependencies of the loader result.
+
+```javascript
+this.clearDependencies();
+```
+
+### `this.cacheable(flag?)`
+
+By default, loader results are cacheable. Call this method with `false` to opt out of caching.
+
+**Parameters:**
+- `flag`: Boolean (default: `true`)
+
+```javascript
+module.exports = function(source) {
+  // This loader uses Date.now(), making it non-deterministic
+  this.cacheable(false);
+  return `export const time = ${Date.now()};`;
+};
+```
+
+### `this.emitFile(name, content, sourceMap?, assetInfo?)`
+
+Emits a file to the output directory.
+
+**Parameters:**
+- `name`: Filename
+- `content`: File content (string or Buffer)
+- `sourceMap`: Optional source map
+- `assetInfo`: Optional asset metadata
+
+```javascript
+this.emitFile(
+  'assets/icon.png',
+  imageBuffer,
+  undefined,
+  { sourceFilename: 'icon.png' }
+);
+```
+
+### `this.emitWarning(warning)`
+
+Emits a warning.
+
+**Parameters:**
+- `warning`: Error instance
+
+```javascript
+if (deprecated) {
+  this.emitWarning(
+    new Error('This feature is deprecated')
+  );
+}
+```
+
+### `this.emitError(error)`
+
+Emits an error (does not fail the compilation).
+
+**Parameters:**
+- `error`: Error instance
+
+```javascript
+if (invalid) {
+  this.emitError(
+    new Error('Invalid syntax')
+  );
+}
+```
+
+### `this.getLogger(name?)`
+
+Get a logger for this loader.
+
+**Parameters:**
+- `name`: Logger name (default: loader name)
+
+**Returns:** `Logger`
+
+```javascript
+const logger = this.getLogger('my-loader');
+logger.info('Processing file');
+logger.warn('Deprecated option');
+logger.error('Failed to process');
+```
+
+### `this.resolve(context, request, callback)`
+
+Resolves a request like a module request.
+
+**Parameters:**
+- `context`: Context directory
+- `request`: Module request
+- `callback`: `(err: Error | null, result: string) => void`
+
+```javascript
+this.resolve(this.context, './module', (err, result) => {
+  if (err) return callback(err);
+  console.log(result); // Absolute path
+});
+```
+
+### `this.getResolve(options?)`
+
+Creates a resolve function with custom options.
+
+**Parameters:**
+- `options`: Resolve options
+
+**Returns:** Resolve function
+
+```javascript
+const resolve = this.getResolve({
+  extensions: ['.js', '.json']
+});
+
+// Use as callback-based
+resolve(this.context, './module', (err, result) => {
+  console.log(result);
+});
+
+// Or as promise-based
+const result = await resolve(this.context, './module');
+```
+
+### `this.loadModule(request, callback)`
+
+Resolves and loads a module, applying all configured loaders.
+
+**Parameters:**
+- `request`: Module request
+- `callback`: `(err: Error | null, source: string | Buffer, sourceMap: any, module: Module) => void`
+
+```javascript
+this.loadModule('./data.json', (err, source, sourceMap, module) => {
+  if (err) return callback(err);
+  const data = JSON.parse(source);
+  // Use data...
+});
+```
+
+### `this.importModule(request, options?, callback?)`
+
+Import a module at build time and execute it. Returns the exports.
+
+**Parameters:**
+- `request`: Module request  
+- `options`: Import options (optional)
+- `callback`: Callback (optional, returns Promise if omitted)
+
+```javascript
+// Promise-based
+const exports = await this.importModule('./generator.js');
+const result = exports.generate();
+
+// Callback-based
+this.importModule('./generator.js', (err, exports) => {
+  const result = exports.generate();
+});
+```
+
+## Utility Functions
+
+### `this.utils`
+
+Utility functions provided by webpack.
+
+#### `this.utils.absolutify(context, request)`
+
+Converts a relative path to an absolute path.
+
+```javascript
+const absolute = this.utils.absolutify(this.context, './file.js');
+```
+
+#### `this.utils.contextify(context, request)`
+
+Converts an absolute path to a relative path.
+
+```javascript
+const relative = this.utils.contextify(this.rootContext, absolutePath);
+```
+
+#### `this.utils.createHash(algorithm?)`
+
+Creates a hash instance.
+
+```javascript
+const hash = this.utils.createHash('md4');
+hash.update(content);
+const digest = hash.digest('hex');
+```
+
+## File System
+
+### `this.fs`
+
+**Type:** `InputFileSystem`
+
+Access to webpack's file system. Use this instead of Node's `fs` module.
+
+```javascript
+this.fs.readFile(filepath, 'utf8', (err, content) => {
+  // Handle file content
+});
+```
+
+## Webpack-Specific
+
+### `this._compiler`
+
+**Type:** `Compiler`
+
+Reference to the webpack Compiler instance. **Use with caution.**
+
+### `this._compilation`
+
+**Type:** `Compilation`
+
+Reference to the current Compilation instance. **Use with caution.**
+
+### `this._module`
+
+**Type:** `NormalModule`
+
+Reference to the current module being loaded. **Use with caution.**
+
+## Hash Functions
+
+### `this.hashFunction`
+
+**Type:** `string`
+
+The hash function to use (e.g., 'md4', 'md5').
+
+### `this.hashDigest`
+
+**Type:** `string`
+
+The encoding to use for the hash digest (e.g., 'hex', 'base64').
+
+### `this.hashDigestLength`
+
+**Type:** `number`
+
+The length of the hash digest.
+
+### `this.hashSalt`
+
+**Type:** `string | undefined`
+
+Optional salt for the hash.
+
+## Environment
+
+### `this.environment`
+
+**Type:** `Environment`
+
+Tells what kind of ES features may be used in the generated runtime code.
+
+```javascript
+if (this.environment.arrowFunction) {
+  // Can use arrow functions
+}
+if (this.environment.const) {
+  // Can use const
+}
+```
+
+## Deprecated Methods
+
+The following methods exist but are deprecated:
+
+### `this.query` (deprecated)
+
+Use `this.getOptions()` instead.
+
+### `this.exec()` (deprecated)
+
+No replacement. Loaders should not execute code.
+
+### `this.inputValue` (deprecated)
+
+No replacement.
+
+### `this.value` (deprecated)
+
+No replacement.
+
+### `this.options` (deprecated)
+
+Use `this.getOptions()` instead.
+
+## Complete Example
+
+Here's a loader using many context features:
+
+```javascript
+const path = require('path');
+
+module.exports = function(source, sourceMap, meta) {
+  // Get options
+  const options = this.getOptions({
+    type: 'object',
+    properties: {
+      include: { type: 'string' }
+    }
+  });
+  
+  // Get logger
+  const logger = this.getLogger('example-loader');
+  logger.info(`Processing ${this.resourcePath}`);
+  
+  // Check mode
+  if (this.mode === 'development') {
+    logger.debug('Development mode enabled');
+  }
+  
+  // Add dependencies
+  const configPath = path.resolve(this.context, 'config.json');
+  this.addDependency(configPath);
+  
+  // Use file system
+  const callback = this.async();
+  this.fs.readFile(configPath, 'utf8', (err, config) => {
+    if (err) {
+      this.emitWarning(new Error(`Config not found: ${err.message}`));
+      return callback(null, source, sourceMap, meta);
+    }
+    
+    // Transform source
+    const result = transform(source, JSON.parse(config));
+    
+    // Emit additional file if needed
+    if (options.emitFile) {
+      this.emitFile('metadata.json', JSON.stringify(result.meta));
+    }
+    
+    // Return with source map
+    callback(null, result.code, result.map, meta);
+  });
+};
+```
+
+## Type Definitions
+
+For TypeScript users, webpack provides type definitions:
+
+```typescript
+import type { LoaderContext } from 'webpack';
+
+interface LoaderOptions {
+  name: string;
+}
+
+function loader(
+  this: LoaderContext<LoaderOptions>,
+  source: string
+): string {
+  const options = this.getOptions();
+  return source.replace(/name/g, options.name);
+}
+
+export default loader;
+```
+
+## Reference Implementation
+
+For real-world examples, see webpack's built-in loaders:
+
+- [NormalModule.js](https://github.com/webpack/webpack/blob/main/lib/NormalModule.js) - Source (line 700-870)
+- [LoaderContext type definitions](https://github.com/webpack/webpack/blob/main/declarations/LoaderContext.d.ts)

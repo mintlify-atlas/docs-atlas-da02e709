@@ -1,0 +1,357 @@
+---
+title: SourceMapDevToolPlugin
+description: Fine-grained control over source map generation
+---
+
+Enables fine-grained control over source map generation. This is an alternative to the `devtool` configuration option with more flexibility.
+
+## Usage
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  // Don't use devtool when using SourceMapDevToolPlugin
+  // devtool: false,
+  plugins: [
+    new webpack.SourceMapDevToolPlugin({
+      filename: '[file].map'
+    })
+  ]
+};
+```
+
+<Warning>
+  Don't use the `devtool` option together with `SourceMapDevToolPlugin`. The `devtool` option adds this plugin automatically.
+</Warning>
+
+## Constructor
+
+```js
+new webpack.SourceMapDevToolPlugin(options);
+```
+
+## Options
+
+<ParamField path="filename" type="string | null | false">
+  The filename of the source map. Supports webpack template strings:
+  - `[file]`: Replaced by the filename of the original asset
+  - `[filebase]`: Replaced by the basename of the original asset
+  - `[name]`: Replaced by the name of the chunk
+  - `[id]`: Replaced by the id of the chunk
+  - `[chunkhash]`: Replaced by the hash of the chunk
+  - `[contenthash]`: Replaced by the content hash
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    filename: '[file].map',  // Creates main.js.map
+    filename: 'sourcemaps/[file].map',  // In subdirectory
+    filename: null  // Inline source map
+  });
+  ```
+
+  - If `null` or not provided: Source map is inlined as DataURL
+  - If `false`: No source map file is generated (used with `append`)
+</ParamField>
+
+<ParamField path="append" type="string | function | false">
+  Appends a comment to the original asset. Supports placeholders:
+  - `[url]`: Replaced by the URL to the source map file
+  - `[map]`: Replaced by the source map content (for inline maps)
+
+  Default: `"\n//# sourceMappingURL=[url]"`
+
+  ```js
+  // Default behavior
+  new webpack.SourceMapDevToolPlugin({
+    filename: '[file].map',
+    append: '\n//# sourceMappingURL=[url]'
+  });
+
+  // Custom comment
+  new webpack.SourceMapDevToolPlugin({
+    filename: '[file].map',
+    append: '\n//@ sourceMappingURL=[url]'
+  });
+
+  // Inline source map
+  new webpack.SourceMapDevToolPlugin({
+    filename: null,
+    append: '\n//# sourceMappingURL=data:application/json;base64,[map]'
+  });
+
+  // Function
+  new webpack.SourceMapDevToolPlugin({
+    append: (pathData) => {
+      return `\n//# sourceMappingURL=${pathData.url}`;
+    }
+  });
+
+  // Don't append comment
+  new webpack.SourceMapDevToolPlugin({
+    filename: '[file].map',
+    append: false
+  });
+  ```
+</ParamField>
+
+<ParamField path="moduleFilenameTemplate" type="string">
+  Template string for naming sources in the source map.
+
+  Default: `"webpack://[namespace]/[resourcePath]"`
+
+  Available placeholders:
+  - `[namespace]`: Module namespace
+  - `[resourcePath]`: Path to the module
+  - `[absoluteResourcePath]`: Absolute path
+  - `[all-loaders]`: Loader names
+  - `[hash]`: Module hash
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    moduleFilenameTemplate: 'webpack://[namespace]/[resource-path]?[loaders]'
+  });
+  ```
+</ParamField>
+
+<ParamField path="fallbackModuleFilenameTemplate" type="string">
+  Template string used when `moduleFilenameTemplate` produces duplicates.
+
+  Default: `"webpack://[namespace]/[resourcePath]?[hash]"`
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    fallbackModuleFilenameTemplate: 'webpack://[namespace]/[resourcePath]?[hash]'
+  });
+  ```
+</ParamField>
+
+<ParamField path="namespace" type="string">
+  Namespace prefix for `moduleFilenameTemplate`.
+
+  Default: `""`
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    namespace: 'my-app'
+  });
+  // Results in: webpack://my-app/src/index.js
+  ```
+</ParamField>
+
+<ParamField path="module" type="boolean" default={true}>
+  Include module information in the source map. When `false`, generates a simpler source map without module details.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    module: false  // Simpler, faster source maps
+  });
+  ```
+</ParamField>
+
+<ParamField path="columns" type="boolean" default={true}>
+  Include column mappings in the source map. When `false`, generates line-only mappings (faster, smaller maps).
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    columns: false  // Faster, smaller source maps
+  });
+  ```
+</ParamField>
+
+<ParamField path="noSources" type="boolean" default={false}>
+  When `true`, the `sourcesContent` field is removed from the source map, making it smaller but requiring the original source files to be available.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    noSources: true  // Don't include source content
+  });
+  ```
+</ParamField>
+
+<ParamField path="publicPath" type="string">
+  Public path for the source map files. Used to compute the `sourceMappingURL` comment.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    filename: 'sourcemaps/[file].map',
+    publicPath: 'https://cdn.example.com/'
+  });
+  // Results in: //# sourceMappingURL=https://cdn.example.com/sourcemaps/main.js.map
+  ```
+</ParamField>
+
+<ParamField path="fileContext" type="string">
+  Context for the `[file]` placeholder. Makes the file path relative to this directory.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    fileContext: 'src'
+  });
+  ```
+</ParamField>
+
+<ParamField path="sourceRoot" type="string">
+  Value for the `sourceRoot` field in the source map.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    sourceRoot: '/'
+  });
+  ```
+</ParamField>
+
+<ParamField path="test" type="string | RegExp | Array<string | RegExp>">
+  Include source maps for modules matching the test.
+
+  Default: `/(\.(c|m)?js|css)($|\?)/i`
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    test: /\.(js|jsx|ts|tsx)$/
+  });
+  ```
+</ParamField>
+
+<ParamField path="include" type="string | RegExp | Array<string | RegExp>">
+  Include source maps for modules matching these conditions.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    include: /\.js$/
+  });
+  ```
+</ParamField>
+
+<ParamField path="exclude" type="string | RegExp | Array<string | RegExp>">
+  Exclude source maps for modules matching these conditions.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    exclude: /node_modules/
+  });
+  ```
+</ParamField>
+
+<ParamField path="ignoreList" type="string | RegExp | Array<string | RegExp>">
+  Patterns for sources that should be added to the `ignoreList` field in the source map. Browser dev tools can use this to hide these sources.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    ignoreList: /node_modules/
+  });
+  ```
+</ParamField>
+
+<ParamField path="debugIds" type="boolean" default={false}>
+  Add a `debugId` field to the source map for better debugging.
+
+  ```js
+  new webpack.SourceMapDevToolPlugin({
+    debugIds: true
+  });
+  ```
+</ParamField>
+
+## Examples
+
+### Basic Source Maps
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: '[file].map'
+});
+```
+
+### Inline Source Maps
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: null  // Inline as data URL
+});
+```
+
+### External Source Maps with Custom Path
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: 'sourcemaps/[file].map',
+  publicPath: 'https://cdn.example.com/',
+  fileContext: 'src'
+});
+```
+
+### Production Source Maps (without source content)
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: '[file].map',
+  noSources: true,
+  columns: false  // Faster generation
+});
+```
+
+### Only for Specific Files
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: '[file].map',
+  test: /\.(js|jsx)$/,
+  exclude: /node_modules/
+});
+```
+
+### Hide Vendor Code in DevTools
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: '[file].map',
+  ignoreList: /node_modules/  // Hide from browser debugger
+});
+```
+
+### Content Hash for Caching
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: '[file].[contenthash].map',
+  append: '\n//# sourceMappingURL=[url]'
+});
+```
+
+### Custom Source Paths
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: '[file].map',
+  moduleFilenameTemplate: '[resource-path]',
+  fallbackModuleFilenameTemplate: '[resource-path]?[hash]',
+  namespace: 'my-library'
+});
+```
+
+## Comparison with devtool
+
+Instead of using `devtool: 'source-map'`, you can use:
+
+```js
+new webpack.SourceMapDevToolPlugin({
+  filename: '[file].map',
+  module: true,
+  columns: true
+});
+```
+
+The plugin provides more granular control over:
+- Where source maps are written
+- How sources are named
+- What gets included/excluded
+- Source map content and size
+
+## Performance Considerations
+
+- Set `columns: false` for faster builds (line-only mappings)
+- Use `module: false` for simpler source maps
+- Set `noSources: true` for smaller source maps in production
+- Use `test` and `exclude` to limit source map generation
+- Consider using `EvalSourceMapDevToolPlugin` for faster development builds

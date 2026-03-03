@@ -1,0 +1,456 @@
+---
+title: Plugins
+description: Extend webpack's capabilities with plugins that tap into the compilation lifecycle
+---
+
+Plugins are the backbone of webpack. Webpack itself is built on the same plugin system that you use in your webpack configuration. They allow you to do anything that can't be done with loaders.
+
+## Plugin Architecture
+
+From `Compiler.js`, webpack uses the Tapable hook system:
+
+```javascript Compiler.js
+class Compiler {
+  constructor(context, options = {}) {
+    this.hooks = Object.freeze({
+      // Compilation lifecycle hooks
+      initialize: new SyncHook([]),
+      shouldEmit: new SyncBailHook(['compilation']),
+      done: new AsyncSeriesHook(['stats']),
+      afterDone: new SyncHook(['stats']),
+      
+      // Compilation process
+      beforeRun: new AsyncSeriesHook(['compiler']),
+      run: new AsyncSeriesHook(['compiler']),
+      emit: new AsyncSeriesHook(['compilation']),
+      afterEmit: new AsyncSeriesHook(['compilation']),
+      
+      // Module factories
+      thisCompilation: new SyncHook(['compilation', 'params']),
+      compilation: new SyncHook(['compilation', 'params']),
+      normalModuleFactory: new SyncHook(['normalModuleFactory']),
+      contextModuleFactory: new SyncHook(['contextModuleFactory']),
+      
+      // Build process
+      beforeCompile: new AsyncSeriesHook(['params']),
+      compile: new SyncHook(['params']),
+      make: new AsyncParallelHook(['compilation']),
+      finishMake: new AsyncSeriesHook(['compilation']),
+      afterCompile: new AsyncSeriesHook(['compilation']),
+      
+      // Watch mode
+      watchRun: new AsyncSeriesHook(['compiler']),
+      failed: new SyncHook(['error']),
+      invalid: new SyncHook(['filename', 'changeTime']),
+      watchClose: new SyncHook([]),
+      
+      // Infrastructure
+      infrastructureLog: new SyncBailHook(['origin', 'type', 'args']),
+      environment: new SyncHook([]),
+      afterEnvironment: new SyncHook([]),
+      afterPlugins: new SyncHook(['compiler']),
+      afterResolvers: new SyncHook(['compiler']),
+      entryOption: new SyncBailHook(['context', 'entry'])
+    });
+  }
+}
+```
+
+## Basic Plugin Structure
+
+```javascript MyPlugin.js
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.emit.tapAsync(
+      'MyPlugin',
+      (compilation, callback) => {
+        // Plugin logic here
+        console.log('Assets are being emitted!');
+        
+        // Modify compilation assets
+        compilation.assets['my-file.txt'] = {
+          source: () => 'Hello World',
+          size: () => 11
+        };
+        
+        callback();
+      }
+    );
+  }
+}
+
+module.exports = MyPlugin;
+```
+
+Usage:
+```javascript webpack.config.js
+const MyPlugin = require('./MyPlugin');
+
+module.exports = {
+  plugins: [
+    new MyPlugin()
+  ]
+};
+```
+
+## Compilation Hooks
+
+From `Compilation.js`, the Compilation class provides many hooks:
+
+```javascript Compilation.js
+class Compilation {
+  constructor(compiler, params) {
+    this.hooks = Object.freeze({
+      // Build process
+      buildModule: new SyncHook(['module']),
+      rebuildModule: new SyncHook(['module']),
+      failedModule: new SyncHook(['module', 'error']),
+      succeedModule: new SyncHook(['module']),
+      
+      // Module processing
+      finishModules: new AsyncSeriesHook(['modules']),
+      finishRebuildingModule: new AsyncSeriesHook(['module']),
+      
+      // Optimization
+      optimize: new SyncHook([]),
+      optimizeModules: new SyncBailHook(['modules']),
+      afterOptimizeModules: new SyncHook(['modules']),
+      
+      optimizeChunks: new SyncBailHook(['chunks', 'chunkGroups']),
+      afterOptimizeChunks: new SyncHook(['chunks', 'chunkGroups']),
+      
+      optimizeTree: new AsyncSeriesHook(['chunks', 'modules']),
+      afterOptimizeTree: new SyncHook(['chunks', 'modules']),
+      
+      // Asset processing
+      processAssets: new AsyncSeriesHook(['assets']),
+      afterProcessAssets: new SyncHook(['assets']),
+      
+      // Stats
+      statsPreset: new HookMap(() => new SyncHook(['options', 'context'])),
+      statsNormalize: new SyncHook(['options', 'context']),
+      statsFactory: new SyncHook(['statsFactory', 'options']),
+      statsPrinter: new SyncHook(['statsPrinter', 'options']),
+      
+      // Additional
+      record: new SyncHook(['compilation', 'records']),
+      needAdditionalPass: new SyncBailHook([]),
+      childCompiler: new SyncHook(['childCompiler', 'compilerName', 'compilerIndex'])
+    });
+  }
+}
+```
+
+## Plugin Examples
+
+<Tabs>
+  <Tab title="Entry Plugin">
+    From `EntryPlugin.js`:
+    ```javascript
+    class EntryPlugin {
+      constructor(context, entry, options) {
+        this.context = context;
+        this.entry = entry;
+        this.options = options;
+      }
+
+      apply(compiler) {
+        compiler.hooks.compilation.tap(
+          'EntryPlugin',
+          (compilation, { normalModuleFactory }) => {
+            compilation.dependencyFactories.set(
+              EntryDependency,
+              normalModuleFactory
+            );
+          }
+        );
+
+        compiler.hooks.make.tapAsync(
+          'EntryPlugin',
+          (compilation, callback) => {
+            const { entry, options, context } = this;
+            const dep = EntryPlugin.createDependency(entry, options);
+            
+            compilation.addEntry(context, dep, options, callback);
+          }
+        );
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="HMR Plugin">
+    From `HotModuleReplacementPlugin.js`:
+    ```javascript
+    class HotModuleReplacementPlugin {
+      apply(compiler) {
+        if (compiler.options.output.strictModuleErrorHandling === undefined) {
+          compiler.options.output.strictModuleErrorHandling = true;
+        }
+        
+        const runtimeRequirements = [RuntimeGlobals.module];
+        
+        // Parser hooks for module.hot API
+        compiler.hooks.compilation.tap(
+          'HotModuleReplacementPlugin',
+          (compilation, { normalModuleFactory }) => {
+            normalModuleFactory.hooks.parser
+              .for('javascript/auto')
+              .tap('HotModuleReplacementPlugin', (parser) => {
+                parser.hooks.evaluateIdentifier
+                  .for('module.hot')
+                  .tap('HotModuleReplacementPlugin', (expr) => {
+                    return evaluateToIdentifier(
+                      'module.hot',
+                      'module',
+                      () => ['hot'],
+                      true
+                    )(expr);
+                  });
+              });
+          }
+        );
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Hook Types
+
+Webpack uses different hook types from Tapable:
+
+<CodeGroup>
+```javascript Sync Hooks
+// SyncHook - All taps are called sequentially
+compiler.hooks.environment.tap('MyPlugin', () => {
+  // Runs synchronously
+});
+
+// SyncBailHook - Returns if any tap returns non-undefined
+compiler.hooks.shouldEmit.tap('MyPlugin', (compilation) => {
+  return false; // Prevent emit
+});
+
+// SyncWaterfallHook - Each tap receives result from previous
+compilation.hooks.assetPath.tap('MyPlugin', (path, data) => {
+  return path.replace('[custom]', data.custom);
+});
+```
+
+```javascript Async Hooks
+// AsyncSeriesHook - Async taps run serially
+compiler.hooks.run.tapAsync('MyPlugin', (compiler, callback) => {
+  setTimeout(() => {
+    console.log('Async work done');
+    callback();
+  }, 1000);
+});
+
+// AsyncParallelHook - Async taps run in parallel  
+compiler.hooks.make.tapPromise('MyPlugin', async (compilation) => {
+  await buildModules();
+});
+
+// AsyncSeriesBailHook - Returns on first non-undefined result
+compiler.hooks.beforeRun.tapAsync('MyPlugin', (compiler, callback) => {
+  if (shouldStop) {
+    return callback(new Error('Stopped'));
+  }
+  callback();
+});
+```
+</CodeGroup>
+
+## Tapping Hooks
+
+Three ways to tap into hooks:
+
+```javascript
+// Synchronous
+compiler.hooks.compile.tap('MyPlugin', (params) => {
+  console.log('Compile started');
+});
+
+// Async with callback
+compiler.hooks.run.tapAsync('MyPlugin', (compiler, callback) => {
+  doAsyncWork(() => callback());
+});
+
+// Async with Promise
+compiler.hooks.run.tapPromise('MyPlugin', (compiler) => {
+  return doAsyncWork();
+});
+```
+
+## Accessing Compilation
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      // Access module graph
+      compilation.hooks.finishModules.tap('MyPlugin', (modules) => {
+        for (const module of modules) {
+          console.log(module.identifier());
+        }
+      });
+      
+      // Optimize chunks
+      compilation.hooks.optimizeChunks.tap('MyPlugin', (chunks) => {
+        for (const chunk of chunks) {
+          console.log(chunk.name);
+        }
+      });
+      
+      // Process assets
+      compilation.hooks.processAssets.tapAsync(
+        {
+          name: 'MyPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+        },
+        (assets, callback) => {
+          for (const [name, asset] of Object.entries(assets)) {
+            // Modify asset
+          }
+          callback();
+        }
+      );
+    });
+  }
+}
+```
+
+<Note>
+Compilation object represents a single build and has access to all modules, dependencies, and generated assets.
+</Note>
+
+## Module Factories
+
+From `NormalModuleFactory.js`:
+
+```javascript
+compiler.hooks.normalModuleFactory.tap('MyPlugin', (factory) => {
+  // Hook into module creation
+  factory.hooks.beforeResolve.tapAsync(
+    'MyPlugin',
+    (resolveData, callback) => {
+      // Modify resolve data
+      console.log('Resolving:', resolveData.request);
+      callback();
+    }
+  );
+  
+  // Hook into parser
+  factory.hooks.parser
+    .for('javascript/auto')
+    .tap('MyPlugin', (parser) => {
+      parser.hooks.program.tap('MyPlugin', (ast) => {
+        // Analyze AST
+      });
+    });
+});
+```
+
+## Asset Processing
+
+```javascript
+class AssetPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('AssetPlugin', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'AssetPlugin',
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE
+        },
+        (assets) => {
+          for (const [pathname, source] of Object.entries(assets)) {
+            // Optimize asset
+            const optimized = optimize(source.source());
+            compilation.updateAsset(pathname, new RawSource(optimized));
+          }
+        }
+      );
+    });
+  }
+}
+```
+
+## Processing Stages
+
+Asset processing happens in stages:
+
+```javascript
+Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS
+Compilation.PROCESS_ASSETS_STAGE_DERIVED
+Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+Compilation.PROCESS_ASSETS_STAGE_NONE
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COUNT
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE
+Compilation.PROCESS_ASSETS_STAGE_DEV_TOOLING
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE
+Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_HASH
+Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER
+Compilation.PROCESS_ASSETS_STAGE_ANALYSE
+Compilation.PROCESS_ASSETS_STAGE_REPORT
+```
+
+## Common Patterns
+
+<Warning>
+Always provide a plugin name when tapping hooks - it helps with debugging and plugin ordering.
+</Warning>
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    const pluginName = 'MyPlugin';
+    
+    compiler.hooks.emit.tapAsync(pluginName, (compilation, callback) => {
+      // Use plugin name for error messages
+      try {
+        // Plugin logic
+      } catch (err) {
+        compilation.errors.push(
+          new Error(`${pluginName}: ${err.message}`)
+        );
+      }
+      callback();
+    });
+  }
+}
+```
+
+## Plugin Options
+
+```javascript
+class MyPlugin {
+  constructor(options = {}) {
+    this.options = {
+      verbose: false,
+      ...options
+    };
+  }
+  
+  apply(compiler) {
+    if (this.options.verbose) {
+      compiler.hooks.done.tap('MyPlugin', (stats) => {
+        console.log('Build completed!');
+      });
+    }
+  }
+}
+
+// Usage
+new MyPlugin({ verbose: true })
+```
+
+## Related Concepts
+
+- [Loaders](/concepts/loaders) - Transform module sources
+- [Compiler](/api/plugins/compiler-hooks) - Compiler lifecycle hooks
+- [Compilation](/api/plugins/compilation-hooks) - Compilation lifecycle hooks

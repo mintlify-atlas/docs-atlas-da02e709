@@ -1,0 +1,512 @@
+---
+title: Externals
+description: Configure dependencies that should not be bundled by webpack
+---
+
+The `externals` configuration provides a way to exclude dependencies from the output bundles. Instead of bundling these dependencies, the created bundle relies on that dependency to be present in the consumer's environment.
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  externals: {
+    jquery: 'jQuery',
+    react: 'React',
+    'react-dom': 'ReactDOM'
+  }
+};
+```
+
+## Why Use Externals?
+
+- **Reduce bundle size**: Exclude large libraries already available
+- **Share dependencies**: Use global libraries loaded via CDN
+- **Library development**: Don't bundle peer dependencies
+- **Micro-frontends**: Share common dependencies
+
+## External Formats
+
+<ParamField path="externals" type="object | array | string | RegExp | function">
+  Prevent bundling of certain imported packages and retrieve them at runtime.
+  
+  ```javascript
+  // Object
+  externals: {
+    lodash: 'lodash'
+  }
+  
+  // Array
+  externals: [
+    'lodash',
+    /^@vendor\/.+$/
+  ]
+  
+  // String
+  externals: 'lodash'
+  
+  // RegExp
+  externals: /^(jquery|\$)$/i
+  
+  // Function
+  externals: ({ request }, callback) => {
+    if (/^@company\/.+$/.test(request)) {
+      return callback(null, `commonjs ${request}`);
+    }
+    callback();
+  }
+  ```
+</ParamField>
+
+### Object Syntax
+
+```javascript
+module.exports = {
+  externals: {
+    // string: The dependency name is replaced with this value
+    jquery: 'jQuery',
+    
+    // array: First element is module name, second is global variable
+    subtract: ['./math', 'subtract'],
+    
+    // object: Different module types
+    lodash: {
+      commonjs: 'lodash',
+      commonjs2: 'lodash',
+      amd: 'lodash',
+      root: '_'
+    }
+  }
+};
+```
+
+### String Syntax
+
+With `externalsType` configuration:
+
+```javascript
+module.exports = {
+  externalsType: 'var',
+  externals: {
+    jquery: 'jQuery',  // Expects window.jQuery
+    react: 'React'     // Expects window.React
+  }
+};
+```
+
+### Array Syntax
+
+Multiple externals:
+
+```javascript
+module.exports = {
+  externals: [
+    'react',
+    'react-dom',
+    /^@vendor\/.+$/
+  ]
+};
+```
+
+### RegExp Syntax
+
+Match patterns:
+
+```javascript
+module.exports = {
+  externals: /^(jquery|\$)$/i
+};
+```
+
+### Function Syntax
+
+Dynamic externals:
+
+```javascript
+module.exports = {
+  externals: [
+    function ({ context, request }, callback) {
+      // Check if dependency should be externalized
+      if (/^@company\/.+$/.test(request)) {
+        return callback(null, `commonjs ${request}`);
+      }
+      
+      // Continue normal bundling
+      callback();
+    }
+  ]
+};
+```
+
+Async function:
+
+```javascript
+module.exports = {
+  externals: [
+    async ({ context, request }) => {
+      if (await isExternal(request)) {
+        return `commonjs ${request}`;
+      }
+    }
+  ]
+};
+```
+
+## Externals Type
+
+<ParamField path="externalsType" type="string">
+  Specify the default type of externals.
+  
+  **Default:** Derived from `output.library.type` or `'var'`
+  
+  Options:
+  - `'var'` - `var X = ...`
+  - `'module'` - ES module import
+  - `'assign'` - `X = ...`
+  - `'this'` - `this.X = ...`
+  - `'window'` - `window.X = ...`
+  - `'self'` - `self.X = ...`
+  - `'global'` - `global.X = ...`
+  - `'commonjs'` - `exports.X = ...`
+  - `'commonjs2'` - `module.exports = ...`
+  - `'commonjs-module'` - `module.exports.X = ...`
+  - `'amd'` - AMD module
+  - `'umd'` - UMD module
+  - `'jsonp'` - JSONP
+  - `'system'` - SystemJS
+  - `'promise'` - Promise
+  - `'import'` - `import()`
+  - `'module-import'` - Dynamic import returning namespace
+  - `'script'` - `<script>` tag
+  - `'node-commonjs'` - Node.js CommonJS
+  
+  ```javascript
+  module.exports = {
+    externalsType: 'var',
+    externals: {
+      react: 'React'
+    }
+  };
+  ```
+</ParamField>
+
+## Externals Presets
+
+<ParamField path="externalsPresets" type="object">
+  Enable presets of externals for specific targets.
+  
+  ```javascript
+  module.exports = {
+    externalsPresets: {
+      web: true,
+      node: true,
+      electron: true
+    }
+  };
+  ```
+</ParamField>
+
+### Available Presets
+
+<ParamField path="externalsPresets.web" type="boolean">
+  Treat web URLs and `std:` imports as external.
+  
+  **Default:** Depends on `target`
+  
+  ```javascript
+  externalsPresets: {
+    web: true
+  }
+  // import 'https://cdn.example.com/lib.js' -> external
+  ```
+</ParamField>
+
+<ParamField path="externalsPresets.node" type="boolean">
+  Treat Node.js built-in modules as external.
+  
+  **Default:** `true` for `target: 'node'`
+  
+  ```javascript
+  externalsPresets: {
+    node: true
+  }
+  // require('fs'), require('path'), etc. -> external
+  ```
+</ParamField>
+
+<ParamField path="externalsPresets.electron" type="boolean">
+  Treat common Electron built-in modules as external.
+  
+  **Default:** `true` for electron targets
+</ParamField>
+
+<ParamField path="externalsPresets.electronMain" type="boolean">
+  Treat Electron main process modules as external.
+</ParamField>
+
+<ParamField path="externalsPresets.electronPreload" type="boolean">
+  Treat Electron preload modules as external.
+</ParamField>
+
+<ParamField path="externalsPresets.electronRenderer" type="boolean">
+  Treat Electron renderer process modules as external.
+</ParamField>
+
+<ParamField path="externalsPresets.nwjs" type="boolean">
+  Treat NW.js legacy modules as external.
+</ParamField>
+
+<ParamField path="externalsPresets.webAsync" type="boolean">
+  Treat web URLs as external async modules.
+</ParamField>
+
+## Common Patterns
+
+### CDN Libraries
+
+```javascript
+module.exports = {
+  externals: {
+    react: 'React',
+    'react-dom': 'ReactDOM',
+    jquery: 'jQuery',
+    lodash: '_',
+    moment: 'moment'
+  }
+};
+```
+
+HTML:
+```html
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="app.bundle.js"></script>
+```
+
+### Library Development
+
+```javascript
+module.exports = {
+  externals: {
+    // Don't bundle peer dependencies
+    react: {
+      commonjs: 'react',
+      commonjs2: 'react',
+      amd: 'React',
+      root: 'React'
+    },
+    'react-dom': {
+      commonjs: 'react-dom',
+      commonjs2: 'react-dom',
+      amd: 'ReactDOM',
+      root: 'ReactDOM'
+    }
+  }
+};
+```
+
+### Node.js Application
+
+```javascript
+const nodeExternals = require('webpack-node-externals');
+
+module.exports = {
+  target: 'node',
+  externals: [nodeExternals()],
+  // or manually
+  externalsPresets: {
+    node: true
+  }
+};
+```
+
+### Monorepo Packages
+
+```javascript
+module.exports = {
+  externals: [
+    // Externalize all @company packages
+    function ({ request }, callback) {
+      if (/^@company\/.+$/.test(request)) {
+        return callback(null, `commonjs ${request}`);
+      }
+      callback();
+    }
+  ]
+};
+```
+
+### Conditional Externals
+
+```javascript
+module.exports = {
+  externals: [
+    function ({ context, request }, callback) {
+      // Production: externalize from CDN
+      if (process.env.NODE_ENV === 'production') {
+        if (request === 'react') {
+          return callback(null, 'root React');
+        }
+      }
+      
+      // Development: bundle
+      callback();
+    }
+  ]
+};
+```
+
+### Selective Externalization
+
+```javascript
+module.exports = {
+  externals: [
+    function ({ context, request }, callback) {
+      // Only externalize from node_modules
+      if (/node_modules/.test(context)) {
+        if (/^(react|react-dom|lodash)$/.test(request)) {
+          return callback(null, `umd ${request}`);
+        }
+      }
+      callback();
+    }
+  ]
+};
+```
+
+## Module Types
+
+### CommonJS
+
+```javascript
+externals: {
+  jquery: 'commonjs jquery'
+}
+// generates: const jquery = require('jquery');
+```
+
+### AMD
+
+```javascript
+externals: {
+  jquery: 'amd jquery'
+}
+// generates: define(['jquery'], function(jquery) { ... });
+```
+
+### ES Module
+
+```javascript
+externalsType: 'module',
+externals: {
+  jquery: 'jquery'
+}
+// generates: import jquery from 'jquery';
+```
+
+### Global Variable
+
+```javascript
+externals: {
+  jquery: 'jQuery'
+}
+// generates: (assumes window.jQuery exists)
+```
+
+### Script Tag Loading
+
+```javascript
+externalsType: 'script',
+externals: {
+  react: ['https://unpkg.com/react@18/umd/react.production.min.js', 'React']
+}
+// Loads script and accesses global React
+```
+
+### Import Function
+
+```javascript
+externalsType: 'import',
+externals: {
+  react: 'react'
+}
+// generates: import('react')
+```
+
+## Advanced Examples
+
+### Micro-Frontend Setup
+
+```javascript
+module.exports = {
+  externals: {
+    // Shared dependencies from container
+    react: 'react',
+    'react-dom': 'react-dom',
+    'react-router-dom': 'react-router-dom'
+  },
+  plugins: [
+    new ModuleFederationPlugin({
+      name: 'app',
+      shared: {
+        react: { singleton: true },
+        'react-dom': { singleton: true }
+      }
+    })
+  ]
+};
+```
+
+### Dynamic CDN Loading
+
+```javascript
+const isProd = process.env.NODE_ENV === 'production';
+
+module.exports = {
+  externals: isProd ? {
+    react: 'React',
+    'react-dom': 'ReactDOM'
+  } : {},
+  plugins: [
+    new HtmlWebpackPlugin({
+      templateParameters: {
+        cdnScripts: isProd ? [
+          'https://unpkg.com/react@18/umd/react.production.min.js',
+          'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'
+        ] : []
+      }
+    })
+  ]
+};
+```
+
+### Layer-Based Externals
+
+```javascript
+module.exports = {
+  externals: [
+    function ({ request, contextInfo }, callback) {
+      // Externalize in server layer
+      if (contextInfo.issuerLayer === 'server') {
+        if (/^(react|react-dom)$/.test(request)) {
+          return callback(null, `commonjs ${request}`);
+        }
+      }
+      callback();
+    }
+  ]
+};
+```
+
+## Source Code Reference
+
+Externals configuration defaults are defined in:
+- `lib/config/defaults.js:1669-1738` - Externals presets defaults
+- `lib/config/defaults.js:451-461` - Externals type defaults
+- `lib/ExternalModuleFactoryPlugin.js` - Externals implementation
+
+## See Also
+
+- [Output Configuration](/configuration/output)
+- [Target Configuration](/configuration/target)
+- [Module Federation](https://webpack.js.org/concepts/module-federation/)
+- [webpack-node-externals](https://github.com/liady/webpack-node-externals)

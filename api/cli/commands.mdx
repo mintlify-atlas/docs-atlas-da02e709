@@ -1,0 +1,228 @@
+---
+title: CLI Commands
+description: Overview of webpack CLI commands and how the CLI interface works
+---
+
+## Overview
+
+Webpack's command-line interface is provided by the separate **webpack-cli** package. When you run the `webpack` command, it automatically detects and loads webpack-cli to handle all CLI operations.
+
+<Note>
+  The `webpack` binary itself (located at `bin/webpack.js`) is primarily a bootstrapper that checks for and loads the webpack-cli package. All command functionality is implemented in webpack-cli.
+</Note>
+
+## How the CLI Works
+
+When you run `webpack` from the command line:
+
+1. The `bin/webpack.js` script executes
+2. It checks if `webpack-cli` is installed
+3. If not installed, it prompts you to install it
+4. Once available, it loads and executes webpack-cli
+
+### Source Reference
+
+The webpack CLI bootstrapper can be found at `bin/webpack.js:195` in the webpack source code.
+
+## Installing webpack-cli
+
+Webpack-cli is a separate package that must be installed alongside webpack:
+
+```bash
+npm install --save-dev webpack webpack-cli
+```
+
+```bash
+yarn add --dev webpack webpack-cli
+```
+
+```bash
+pnpm add -D webpack webpack-cli
+```
+
+### Auto-Installation
+
+If webpack-cli is not installed when you run `webpack`, you'll see a prompt:
+
+```
+CLI for webpack must be installed.
+  webpack-cli (https://github.com/webpack/webpack-cli)
+
+We will use "npm" to install the CLI via "npm install -D webpack-cli".
+Do you want to install 'webpack-cli' (yes/no):
+```
+
+The installer automatically detects your package manager:
+- **yarn**: If `yarn.lock` exists
+- **pnpm**: If `pnpm-lock.yaml` exists  
+- **npm**: Default fallback
+
+## Basic Usage
+
+Once webpack-cli is installed, you can run webpack commands:
+
+### Default Build
+
+```bash
+webpack
+```
+
+Runs webpack with default configuration (looks for `webpack.config.js`).
+
+### Custom Configuration
+
+```bash
+webpack --config webpack.prod.js
+```
+
+Uses a specific configuration file.
+
+### Development Mode
+
+```bash
+webpack --mode development
+```
+
+Builds in development mode with optimizations disabled.
+
+### Production Mode
+
+```bash
+webpack --mode production
+```
+
+Builds in production mode with optimizations enabled.
+
+### Watch Mode
+
+```bash
+webpack --watch
+```
+
+Watches files and rebuilds on changes.
+
+## Advanced Commands
+
+### Build with Custom Entry
+
+```bash
+webpack ./src/index.js --output-path ./dist
+```
+
+Specifies a custom entry point and output directory.
+
+### Multiple Configurations
+
+```bash
+webpack --config-name production
+```
+
+When exporting multiple configurations, selects a specific one by name.
+
+### Stats Output
+
+```bash
+webpack --json > stats.json
+```
+
+Outputs compilation statistics in JSON format.
+
+### Bundle Analysis
+
+```bash
+webpack --profile --json > stats.json
+```
+
+Includes profiling information in the stats output.
+
+## webpack-cli Commands
+
+Webpack-cli provides several subcommands:
+
+### Build (default)
+
+```bash
+webpack build
+# or simply
+webpack
+```
+
+Runs a webpack build.
+
+### Init
+
+```bash
+webpack init
+```
+
+Initializes a new webpack project with a configuration file.
+
+### Serve
+
+```bash
+webpack serve
+```
+
+Starts webpack-dev-server for development.
+
+### Info
+
+```bash
+webpack info
+```
+
+Outputs information about your system and webpack setup.
+
+### Configtest
+
+```bash
+webpack configtest
+```
+
+Validates your webpack configuration file.
+
+## Environment Variables
+
+You can pass environment variables to your webpack configuration:
+
+```bash
+webpack --env production --env api=https://api.example.com
+```
+
+These are accessible in your configuration:
+
+```javascript
+module.exports = (env) => {
+  return {
+    mode: env.production ? 'production' : 'development',
+    // ...
+  };
+};
+```
+
+## Package Manager Detection
+
+The webpack CLI automatically detects your package manager by looking for lock files:
+
+- `yarn.lock` → Uses yarn
+- `pnpm-lock.yaml` → Uses pnpm
+- Otherwise → Uses npm
+
+This detection happens at `bin/webpack.js:131-137` in the source code.
+
+## Related Resources
+
+- [webpack-cli GitHub Repository](https://github.com/webpack/webpack-cli)
+- [CLI Flags Reference](/api/cli/flags)
+- [Configuration Reference](/configuration/entry-context)
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="CLI Flags" icon="flag" href="/api/cli/flags">
+    Complete reference of all available CLI flags and options
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/entry-context">
+    Learn about webpack configuration files
+  </Card>
+</CardGroup>

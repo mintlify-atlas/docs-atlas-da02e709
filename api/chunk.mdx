@@ -1,0 +1,360 @@
+---
+title: Chunk
+description: API reference for webpack's Chunk class
+---
+
+The `Chunk` class represents a unit of encapsulation for modules. Chunks are rendered into bundles that get emitted when the build completes.
+
+## Constructor
+
+<ParamField path="name" type="string">
+  Optional name for the chunk
+</ParamField>
+
+<ParamField path="backCompat" type="boolean" default="true">
+  Enable backward compatibility features
+</ParamField>
+
+```javascript
+// Usually created by webpack during code splitting
+const chunk = new Chunk('my-chunk');
+```
+
+## Properties
+
+<ResponseField name="id" type="ChunkId | null">
+  Unique identifier for the chunk (string or number)
+</ResponseField>
+
+<ResponseField name="ids" type="ChunkId[] | null">
+  Array of IDs when the chunk is used in multiple contexts
+</ResponseField>
+
+<ResponseField name="name" type="string | undefined">
+  Human-readable name for the chunk (e.g., entry point name)
+</ResponseField>
+
+<ResponseField name="debugId" type="number">
+  Debug identifier for the chunk
+</ResponseField>
+
+<ResponseField name="idNameHints" type="SortableSet<string>">
+  Hints for generating the chunk ID
+</ResponseField>
+
+<ResponseField name="runtime" type="RuntimeSpec">
+  The runtime(s) this chunk belongs to
+</ResponseField>
+
+<ResponseField name="files" type="Set<string>">
+  Set of filenames emitted for this chunk
+</ResponseField>
+
+<ResponseField name="auxiliaryFiles" type="Set<string>">
+  Set of auxiliary files (sourcemaps, etc.)
+</ResponseField>
+
+<ResponseField name="rendered" type="boolean">
+  Whether the chunk has been rendered
+</ResponseField>
+
+<ResponseField name="hash" type="string | undefined">
+  The hash for this chunk
+</ResponseField>
+
+<ResponseField name="contentHash" type="Record<string, string>">
+  Content hashes by type (javascript, css, etc.)
+</ResponseField>
+
+<ResponseField name="renderedHash" type="string | undefined">
+  The rendered/shortened hash
+</ResponseField>
+
+<ResponseField name="chunkReason" type="string | undefined">
+  Reason why the chunk was created
+</ResponseField>
+
+<ResponseField name="preventIntegration" type="boolean">
+  Prevents this chunk from being merged with others
+</ResponseField>
+
+<ResponseField name="filenameTemplate" type="string | undefined">
+  Template for generating the chunk filename
+</ResponseField>
+
+## Methods
+
+### hasRuntime()
+
+Checks if the chunk contains runtime code.
+
+<ResponseField name="return" type="boolean">
+  True if the chunk has runtime code
+</ResponseField>
+
+```javascript
+if (chunk.hasRuntime()) {
+  console.log('This chunk contains webpack runtime');
+}
+```
+
+### canBeInitial()
+
+Checks if the chunk can be an initial chunk (loaded at page load).
+
+<ResponseField name="return" type="boolean">
+  True if the chunk can be initial
+</ResponseField>
+
+```javascript
+if (chunk.canBeInitial()) {
+  console.log('This chunk can be loaded initially');
+}
+```
+
+### isOnlyInitial()
+
+Checks if the chunk can only be an initial chunk.
+
+<ResponseField name="return" type="boolean">
+  True if the chunk is only initial
+</ResponseField>
+
+### getEntryOptions()
+
+Returns entry options if this chunk is an entry chunk.
+
+<ResponseField name="return" type="EntryOptions | undefined">
+  Entry options or undefined
+</ResponseField>
+
+```javascript
+const entryOptions = chunk.getEntryOptions();
+if (entryOptions) {
+  console.log('Entry name:', entryOptions.name);
+  console.log('Entry runtime:', entryOptions.runtime);
+}
+```
+
+### addGroup()
+
+Adds a chunk group that references this chunk.
+
+<ParamField path="chunkGroup" type="ChunkGroup" required>
+  The chunk group to add
+</ParamField>
+
+### removeGroup()
+
+Removes a chunk group reference.
+
+<ParamField path="chunkGroup" type="ChunkGroup" required>
+  The chunk group to remove
+</ParamField>
+
+### isInGroup()
+
+Checks if the chunk belongs to a specific chunk group.
+
+<ParamField path="chunkGroup" type="ChunkGroup" required>
+  The chunk group to check
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  True if the chunk is in the group
+</ResponseField>
+
+### getNumberOfGroups()
+
+Returns the number of chunk groups referencing this chunk.
+
+<ResponseField name="return" type="number">
+  Number of chunk groups
+</ResponseField>
+
+### split()
+
+Splits a chunk, creating a new chunk that shares the same groups.
+
+<ParamField path="newChunk" type="Chunk" required>
+  The new chunk to split into
+</ParamField>
+
+```javascript
+const newChunk = new Chunk('split-chunk');
+originalChunk.split(newChunk);
+```
+
+### updateHash()
+
+Updates a hash with chunk-specific data.
+
+<ParamField path="hash" type="Hash" required>
+  The hash object to update
+</ParamField>
+
+<ParamField path="chunkGraph" type="ChunkGraph" required>
+  The chunk graph
+</ParamField>
+
+```javascript
+const crypto = require('crypto');
+const hash = crypto.createHash('md5');
+chunk.updateHash(hash, compilation.chunkGraph);
+```
+
+### getAllAsyncChunks()
+
+Returns all chunks that are loaded asynchronously from this chunk.
+
+<ResponseField name="return" type="Set<Chunk>">
+  Set of async chunks
+</ResponseField>
+
+```javascript
+const asyncChunks = chunk.getAllAsyncChunks();
+console.log(`This chunk loads ${asyncChunks.size} async chunks`);
+```
+
+### getAllInitialChunks()
+
+Returns all initial chunks including this one.
+
+<ResponseField name="return" type="Set<Chunk>">
+  Set of initial chunks
+</ResponseField>
+
+### getAllReferencedChunks()
+
+Returns all chunks referenced by this chunk.
+
+<ResponseField name="return" type="Set<Chunk>">
+  Set of referenced chunks
+</ResponseField>
+
+### getAllReferencedAsyncEntrypoints()
+
+Returns all async entry points referenced by this chunk.
+
+<ResponseField name="return" type="Set<Entrypoint>">
+  Set of async entry points
+</ResponseField>
+
+### hasAsyncChunks()
+
+Checks if this chunk references any async chunks.
+
+<ResponseField name="return" type="boolean">
+  True if the chunk has async children
+</ResponseField>
+
+```javascript
+if (chunk.hasAsyncChunks()) {
+  console.log('This chunk uses code splitting');
+}
+```
+
+### getChildIdsByOrders()
+
+Returns child chunk IDs grouped by order type (e.g., preload, prefetch).
+
+<ParamField path="chunkGraph" type="ChunkGraph" required>
+  The chunk graph
+</ParamField>
+
+<ParamField path="filterFn" type="ChunkFilterPredicate">
+  Optional filter function
+</ParamField>
+
+<ResponseField name="return" type="Record<string, ChunkId[]>">
+  Object mapping order types to chunk ID arrays
+</ResponseField>
+
+```javascript
+const childIds = chunk.getChildIdsByOrders(chunkGraph);
+if (childIds.prefetch) {
+  console.log('Prefetch chunks:', childIds.prefetch);
+}
+```
+
+## Working with ChunkGraph
+
+Chunks work closely with `ChunkGraph` to manage module relationships:
+
+```javascript
+class ChunkAnalyzerPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('ChunkAnalyzer', (compilation) => {
+      compilation.hooks.afterOptimizeChunks.tap('ChunkAnalyzer', (chunks) => {
+        const { chunkGraph } = compilation;
+        
+        for (const chunk of chunks) {
+          // Get modules in chunk
+          const modules = chunkGraph.getChunkModules(chunk);
+          const moduleCount = modules.length;
+          
+          // Get chunk size
+          const size = chunkGraph.getChunkSize(chunk, {
+            chunkOverhead: 0,
+            entryChunkMultiplicator: 1
+          });
+          
+          console.log(`Chunk: ${chunk.name || chunk.id}`);
+          console.log(`  Modules: ${moduleCount}`);
+          console.log(`  Size: ${size} bytes`);
+          console.log(`  Files:`, Array.from(chunk.files));
+          console.log(`  Is entry: ${chunk.hasRuntime()}`);
+        }
+      });
+    });
+  }
+}
+```
+
+## Example: Custom Chunk Plugin
+
+```javascript
+class CustomChunkPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('CustomChunkPlugin', (compilation) => {
+      // Analyze chunks after optimization
+      compilation.hooks.afterOptimizeChunks.tap('CustomChunkPlugin', (chunks) => {
+        for (const chunk of chunks) {
+          // Only process non-entry chunks
+          if (!chunk.hasRuntime()) {
+            // Get all async chunks loaded by this chunk
+            const asyncChunks = chunk.getAllAsyncChunks();
+            
+            // Check if chunk has prefetch/preload
+            const childIds = chunk.getChildIdsByOrders(
+              compilation.chunkGraph
+            );
+            
+            if (childIds.prefetch) {
+              console.log(
+                `Chunk ${chunk.id} prefetches:`,
+                childIds.prefetch
+              );
+            }
+            
+            // Modify chunk filename template
+            if (asyncChunks.size > 3) {
+              chunk.filenameTemplate = 'lazy-[name].[contenthash].js';
+            }
+          }
+        }
+      });
+      
+      // Access chunk info during asset generation
+      compilation.hooks.chunkAsset.tap(
+        'CustomChunkPlugin',
+        (chunk, filename) => {
+          console.log(`Chunk ${chunk.name} -> ${filename}`);
+          console.log(`  Hash: ${chunk.renderedHash}`);
+          console.log(`  Content hash:`, chunk.contentHash);
+        }
+      );
+    });
+  }
+}
+```

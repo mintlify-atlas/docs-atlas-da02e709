@@ -1,0 +1,526 @@
+---
+title: TypeScript
+description: Configure webpack to compile TypeScript with type checking and source maps
+---
+
+Integrate TypeScript into your webpack workflow for type-safe development. Learn about loaders, type checking, and optimization.
+
+## Basic Setup
+
+<Steps>
+  <Step title="Install TypeScript and webpack loader">
+    ```bash
+    npm install --save-dev typescript ts-loader
+    ```
+  </Step>
+
+  <Step title="Create tsconfig.json">
+    ```json tsconfig.json
+    {
+      "compilerOptions": {
+        "target": "es5",
+        "module": "esnext",
+        "lib": ["es2015", "dom"],
+        "jsx": "react",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "sourceMap": true,
+        "outDir": "./dist"
+      },
+      "include": ["src/**/*"],
+      "exclude": ["node_modules"]
+    }
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      mode: 'development',
+      entry: './src/index.ts',
+      
+      module: {
+        rules: [
+          {
+            test: /\.tsx?$/,
+            use: 'ts-loader',
+            exclude: /node_modules/
+          }
+        ]
+      },
+      
+      resolve: {
+        extensions: ['.tsx', '.ts', '.js', '.json']
+      },
+      
+      output: {
+        filename: 'bundle.js',
+        path: path.resolve(__dirname, 'dist')
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Create TypeScript file">
+    ```typescript src/index.ts
+    interface User {
+      name: string;
+      age: number;
+    }
+    
+    function greet(user: User): string {
+      return `Hello, ${user.name}!`;
+    }
+    
+    const user: User = {
+      name: 'webpack',
+      age: 10
+    };
+    
+    console.log(greet(user));
+    ```
+  </Step>
+</Steps>
+
+## ts-loader vs babel-loader
+
+<CodeGroup>
+```javascript ts-loader (Type Checking)
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/
+      }
+    ]
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.json']
+  }
+};
+// Pros: Type checking, full TypeScript support
+// Cons: Slower build times
+```
+
+```javascript babel-loader (Faster)
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.(ts|js)x?$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              '@babel/preset-env',
+              '@babel/preset-typescript'
+            ]
+          }
+        }
+      }
+    ]
+  },
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.jsx']
+  }
+};
+// Pros: Fast compilation
+// Cons: No type checking during build
+```
+</CodeGroup>
+
+<Note>
+  `ts-loader` performs type checking during compilation. `babel-loader` transpiles only, requiring separate type checking.
+</Note>
+
+## Fork TS Checker Plugin
+
+Run type checking in separate process for faster builds:
+
+<Steps>
+  <Step title="Install plugin">
+    ```bash
+    npm install --save-dev fork-ts-checker-webpack-plugin
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    ```javascript webpack.config.js
+    const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+    
+    module.exports = {
+      mode: 'development',
+      entry: './src/index.ts',
+      
+      module: {
+        rules: [
+          {
+            test: /\.tsx?$/,
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true // Disable type checking
+            },
+            exclude: /node_modules/
+          }
+        ]
+      },
+      
+      resolve: {
+        extensions: ['.tsx', '.ts', '.js', '.json']
+      },
+      
+      plugins: [
+        new ForkTsCheckerWebpackPlugin({
+          async: false // Block emit on type errors
+        })
+      ]
+    };
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Use `transpileOnly: true` with ForkTsCheckerWebpackPlugin for significantly faster builds.
+</Tip>
+
+## Development vs Production
+
+<CodeGroup>
+```javascript Development
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-source-map',
+  
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        loader: 'ts-loader',
+        options: {
+          transpileOnly: true
+        }
+      }
+    ]
+  },
+  
+  resolve: {
+    extensions: ['.ts', '.tsx', '.js', '.json']
+  },
+  
+  plugins: [
+    new ForkTsCheckerWebpackPlugin({
+      async: true // Don't block emit
+    })
+  ]
+};
+```
+
+```javascript Production
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+
+module.exports = {
+  mode: 'production',
+  devtool: 'source-map',
+  
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        loader: 'ts-loader',
+        options: {
+          transpileOnly: true
+        }
+      }
+    ]
+  },
+  
+  resolve: {
+    extensions: ['.ts', '.js', '.json']
+  },
+  
+  plugins: [
+    new ForkTsCheckerWebpackPlugin({
+      async: false // Block emit on errors
+    })
+  ]
+};
+```
+</CodeGroup>
+
+## Source Maps
+
+Configure TypeScript source maps:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "sourceMap": true,
+    "inlineSources": true,
+    "sourceRoot": "/"
+  }
+}
+```
+
+```javascript webpack.config.js
+module.exports = {
+  mode: 'development',
+  devtool: 'eval-source-map',
+  
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader'
+      }
+    ]
+  }
+};
+```
+
+## Path Aliases
+
+Define import aliases:
+
+<Steps>
+  <Step title="Configure tsconfig.json">
+    ```json tsconfig.json
+    {
+      "compilerOptions": {
+        "baseUrl": "./src",
+        "paths": {
+          "@components/*": ["components/*"],
+          "@utils/*": ["utils/*"],
+          "@types/*": ["types/*"]
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Configure webpack">
+    ```javascript webpack.config.js
+    const path = require('path');
+    
+    module.exports = {
+      resolve: {
+        extensions: ['.ts', '.tsx', '.js'],
+        alias: {
+          '@components': path.resolve(__dirname, 'src/components'),
+          '@utils': path.resolve(__dirname, 'src/utils'),
+          '@types': path.resolve(__dirname, 'src/types')
+        }
+      }
+    };
+    ```
+  </Step>
+
+  <Step title="Use aliases in code">
+    ```typescript src/app.ts
+    import { Button } from '@components/Button';
+    import { formatDate } from '@utils/date';
+    import { User } from '@types/user';
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  Both `tsconfig.json` and webpack need matching alias configurations.
+</Note>
+
+## React with TypeScript
+
+```bash
+npm install --save react react-dom
+npm install --save-dev @types/react @types/react-dom
+```
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "jsx": "react",
+    "lib": ["es2015", "dom"]
+  }
+}
+```
+
+```javascript webpack.config.js
+module.exports = {
+  entry: './src/index.tsx',
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/
+      }
+    ]
+  },
+  resolve: {
+    extensions: ['.tsx', '.ts', '.js']
+  }
+};
+```
+
+```typescript src/App.tsx
+import React from 'react';
+
+interface Props {
+  name: string;
+}
+
+const App: React.FC<Props> = ({ name }) => {
+  return <h1>Hello, {name}!</h1>;
+};
+
+export default App;
+```
+
+## Declaration Files
+
+Generate `.d.ts` files for libraries:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "declarationDir": "./dist/types"
+  }
+}
+```
+
+```javascript webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.tsx?$/,
+        loader: 'ts-loader',
+        options: {
+          compilerOptions: {
+            declaration: true
+          }
+        }
+      }
+    ]
+  }
+};
+```
+
+## Importing Non-TypeScript Modules
+
+Declare module types:
+
+```typescript src/types/modules.d.ts
+// CSS modules
+declare module '*.css' {
+  const content: { [className: string]: string };
+  export default content;
+}
+
+// Images
+declare module '*.png' {
+  const value: string;
+  export default value;
+}
+
+declare module '*.svg' {
+  const value: string;
+  export default value;
+}
+
+// JSON
+declare module '*.json' {
+  const value: any;
+  export default value;
+}
+```
+
+## Complete Configuration
+
+Production-ready TypeScript setup:
+
+```javascript webpack.config.js
+const path = require('path');
+const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
+  
+  return {
+    mode: isProduction ? 'production' : 'development',
+    entry: './src/index.ts',
+    
+    devtool: isProduction ? 'source-map' : 'eval-source-map',
+    
+    module: {
+      rules: [
+        {
+          test: /\.tsx?$/,
+          loader: 'ts-loader',
+          options: {
+            transpileOnly: true
+          },
+          exclude: /node_modules/
+        },
+        {
+          test: /\.css$/,
+          use: ['style-loader', 'css-loader']
+        }
+      ]
+    },
+    
+    resolve: {
+      extensions: ['.tsx', '.ts', '.js', '.json'],
+      alias: {
+        '@components': path.resolve(__dirname, 'src/components'),
+        '@utils': path.resolve(__dirname, 'src/utils')
+      }
+    },
+    
+    output: {
+      filename: '[name].[contenthash].js',
+      path: path.resolve(__dirname, 'dist'),
+      clean: true
+    },
+    
+    plugins: [
+      new HtmlWebpackPlugin({
+        template: './src/index.html'
+      }),
+      new ForkTsCheckerWebpackPlugin({
+        async: !isProduction
+      })
+    ],
+    
+    optimization: {
+      moduleIds: 'deterministic',
+      runtimeChunk: 'single',
+      splitChunks: {
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all'
+          }
+        }
+      }
+    }
+  };
+};
+```
+
+<Tip>
+  Use `transpileOnly: true` with ForkTsCheckerWebpackPlugin for the best build performance.
+</Tip>

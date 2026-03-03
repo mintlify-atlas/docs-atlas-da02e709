@@ -1,0 +1,438 @@
+---
+title: Dependency Graph
+description: Understanding webpack's module dependency graph and how it's built
+---
+
+Any time one file depends on another, webpack treats this as a **dependency**. Webpack builds a dependency graph starting from entry points and recursively includes all dependencies.
+
+## Graph Structure
+
+From `ModuleGraph.js`, webpack maintains the dependency graph:
+
+```javascript ModuleGraph.js
+class ModuleGraph {
+  constructor() {
+    // Map dependencies to their connections
+    this._dependencyMap = new WeakMap();
+    
+    // Map modules to their graph data
+    this._moduleMap = new Map();
+    
+    // Cache for graph queries
+    this._cache = undefined;
+  }
+  
+  setResolvedModule(originModule, dependency, module) {
+    const connection = new ModuleGraphConnection(
+      originModule,     // Module that has the dependency
+      dependency,       // The dependency object
+      module,          // The resolved target module
+      undefined,
+      dependency.weak,
+      dependency.getCondition(this)
+    );
+    
+    // Track incoming connections (who depends on this module)
+    const targetMgm = this._getModuleGraphModule(module);
+    targetMgm.incomingConnections.add(connection);
+    
+    // Track outgoing connections (what this module depends on)
+    if (originModule) {
+      const originMgm = this._getModuleGraphModule(originModule);
+      if (!originMgm.outgoingConnections) {
+        originMgm.outgoingConnections = new SortableSet();
+      }
+      originMgm.outgoingConnections.add(connection);
+    }
+  }
+}
+```
+
+## Module Graph Node
+
+From `ModuleGraph.js`, each module has associated metadata:
+
+```javascript
+class ModuleGraphModule {
+  constructor() {
+    this.incomingConnections = new SortableSet();  // Modules that depend on this
+    this.outgoingConnections = undefined;          // Modules this depends on
+    this.issuer = undefined;                       // Module that imported this
+    this.optimizationBailout = [];                // Reasons why can't optimize
+    this.exports = new ExportsInfo();              // Export information
+    this.preOrderIndex = null;                     // DFS pre-order index
+    this.postOrderIndex = null;                    // DFS post-order index
+    this.depth = null;                             // Depth from entry
+    this.profile = undefined;                      // Build timing info
+    this.async = false;                            // Is async module
+  }
+}
+```
+
+## Building the Graph
+
+From `Compilation.js`, the graph is built during compilation:
+
+```javascript Compilation.js
+class Compilation {
+  addEntry(context, entry, optionsOrName, callback) {
+    // Start building from entry point
+    this.addModuleTree({
+      context,
+      dependency: entry,
+      contextInfo: entryData.options.layer
+        ? { issuerLayer: entryData.options.layer }
+        : undefined
+    }, (err, module) => {
+      if (err) return callback(err);
+      
+      // Module and all dependencies are now in graph
+      callback(null, module);
+    });
+  }
+  
+  _addModule(module, callback) {
+    // Check if module already exists
+    const identifier = module.identifier();
+    const alreadyAddedModule = this._modules.get(identifier);
+    
+    if (alreadyAddedModule) {
+      return callback(null, alreadyAddedModule);
+    }
+    
+    // Add to graph
+    this._modules.set(identifier, module);
+    this.modules.add(module);
+    
+    callback(null, module);
+  }
+}
+```
+
+## Dependency Types
+
+Webpack recognizes various dependency types:
+
+<Tabs>
+  <Tab title="ES Modules">
+    ```javascript
+    // HarmonyImportDependency
+    import { named } from './module';
+    
+    // HarmonyImportSideEffectDependency
+    import './side-effects';
+    
+    // HarmonyExportSpecifierDependency
+    export { value };
+    
+    // HarmonyExportImportedSpecifierDependency
+    export { named } from './module';
+    ```
+  </Tab>
+  
+  <Tab title="CommonJS">
+    ```javascript
+    // CommonJsRequireDependency
+    const module = require('./module');
+    
+    // CommonJsExportRequireDependency
+    module.exports = value;
+    ```
+  </Tab>
+  
+  <Tab title="Dynamic">
+    ```javascript
+    // ImportDependency (dynamic import)
+    import('./module').then(module => {});
+    
+    // RequireEnsureDependency
+    require.ensure(['./module'], () => {});
+    
+    // ContextDependency
+    require(`./locale/${language}.json`);
+    ```
+  </Tab>
+  
+  <Tab title="Special">
+    ```javascript
+    // EntryDependency
+    // Created for entry points
+    
+    // DelegatedDependency
+    // For DllPlugin references
+    
+    // ModuleDependency
+    // Base class for module dependencies
+    ```
+  </Tab>
+</Tabs>
+
+## Graph Traversal
+
+From `buildChunkGraph.js`, webpack traverses the graph:
+
+```javascript
+// Visit modules in pre-order (before children)
+for (const module of compilation.modules) {
+  processModule(module);
+}
+
+function processModule(module) {
+  const mgm = moduleGraph.getModuleGraphModule(module);
+  
+  // Process incoming connections (dependents)
+  for (const connection of mgm.incomingConnections) {
+    const originModule = connection.originModule;
+    if (originModule) {
+      // Process dependency
+    }
+  }
+  
+  // Process outgoing connections (dependencies)
+  if (mgm.outgoingConnections) {
+    for (const connection of mgm.outgoingConnections) {
+      const targetModule = connection.module;
+      if (targetModule) {
+        // Recursively process dependencies
+        processModule(targetModule);
+      }
+    }
+  }
+}
+```
+
+## Module Connections
+
+From `ModuleGraphConnection.js`:
+
+```javascript
+class ModuleGraphConnection {
+  constructor(
+    originModule,      // Source module
+    dependency,        // Dependency object
+    module,           // Target module
+    explanation,      // Optional explanation
+    weak = false,     // Weak dependency (not required)
+    condition = null  // Condition for inclusion
+  ) {
+    this.originModule = originModule;
+    this.dependency = dependency;
+    this.module = module;
+    this.weak = weak;
+    this.conditional = condition !== null;
+    this._active = condition !== false;
+  }
+  
+  // Check if connection is active for runtime
+  isActive(runtime) {
+    if (!this.conditional) return this._active;
+    return this.condition({
+      module: this.module,
+      originModule: this.originModule,
+      dependency: this.dependency
+    }, runtime);
+  }
+  
+  // Check if module is available at runtime
+  isTargetActive(runtime) {
+    if (!this.conditional) return this._active;
+    return this.condition({
+      module: this.module,
+      originModule: this.originModule,
+      dependency: this.dependency
+    }, runtime);
+  }
+}
+```
+
+## Chunk Graph
+
+From `ChunkGraph.js`, modules are assigned to chunks:
+
+```javascript ChunkGraph.js
+class ChunkGraph {
+  connectChunkAndModule(chunk, module) {
+    // Connect chunk <-> module
+    const cgm = this._getChunkGraphModule(module);
+    cgm.chunks.add(chunk);
+    
+    const cgc = this._getChunkGraphChunk(chunk);
+    cgc.modules.add(module);
+  }
+  
+  getModuleChunks(module) {
+    const cgm = this._getChunkGraphModule(module);
+    return cgm.chunks;
+  }
+  
+  isModuleInChunk(module, chunk) {
+    const cgm = this._getChunkGraphModule(module);
+    return cgm.chunks.has(chunk);
+  }
+}
+```
+
+## Example Graph
+
+<CodeGroup>
+```javascript Source Files
+// entry.js
+import { util } from './utils';
+import('./async-module');
+
+// utils.js
+import lodash from 'lodash';
+export const util = () => {};
+
+// async-module.js
+import { helper } from './helper';
+```
+
+```text Dependency Graph
+entry.js
+├── utils.js
+│   └── lodash
+└── async-module.js (async)
+    └── helper.js
+
+Connections:
+- entry.js → utils.js (HarmonyImportDependency)
+- entry.js → async-module.js (ImportDependency)
+- utils.js → lodash (HarmonyImportDependency)
+- async-module.js → helper.js (HarmonyImportDependency)
+```
+</CodeGroup>
+
+## Graph Metadata
+
+From `ModuleGraph.js`, metadata can be attached:
+
+```javascript
+class ModuleGraph {
+  getMeta(thing) {
+    let meta = this._metaMap.get(thing);
+    if (meta === undefined) {
+      meta = Object.create(null);
+      this._metaMap.set(thing, meta);
+    }
+    return meta;
+  }
+  
+  // Example: Store import var names
+  const meta = moduleGraph.getMeta(dependency);
+  meta.importVarMap = new Map();
+  meta.importVarMap.set(module, 'imported_module');
+}
+```
+
+## Optimization Impact
+
+The graph enables optimizations:
+
+<CardGroup cols={2}>
+  <Card title="Tree Shaking" icon="tree">
+    Remove unused exports by analyzing the graph
+  </Card>
+  <Card title="Code Splitting" icon="scissors">
+    Split code into chunks based on dependencies
+  </Card>
+  <Card title="Module Concatenation" icon="link">
+    Merge modules in the same scope
+  </Card>
+  <Card title="Dead Code Elimination" icon="trash">
+    Remove unreachable code paths
+  </Card>
+</CardGroup>
+
+## Circular Dependencies
+
+Webpack handles circular dependencies:
+
+```javascript
+// a.js
+import b from './b';
+export default { name: 'a', b };
+
+// b.js
+import a from './a';
+export default { name: 'b', a };
+
+// Webpack detects the cycle and handles it
+// by providing undefined initially, then filling in
+// the reference once both modules are executed
+```
+
+<Warning>
+Circular dependencies can cause issues. Use `ModuleGraph` to detect them in plugins.
+</Warning>
+
+## Querying the Graph
+
+From `ModuleGraph.js`, common queries:
+
+```javascript
+class ModuleGraph {
+  // Get all modules that import this module
+  getIncomingConnections(module) {
+    const mgm = this._getModuleGraphModule(module);
+    return mgm.incomingConnections;
+  }
+  
+  // Get all modules this module imports
+  getOutgoingConnections(module) {
+    const mgm = this._getModuleGraphModule(module);
+    return mgm.outgoingConnections || EMPTY_SET;
+  }
+  
+  // Get module that issued this module
+  getIssuer(module) {
+    const mgm = this._getModuleGraphModule(module);
+    return mgm.issuer;
+  }
+  
+  // Get module depth from entry
+  getDepth(module) {
+    const mgm = this._getModuleGraphModule(module);
+    return mgm.depth;
+  }
+  
+  // Set pre/post order indices
+  setPreOrderIndex(module, index) {
+    const mgm = this._getModuleGraphModule(module);
+    mgm.preOrderIndex = index;
+  }
+}
+```
+
+## Weak Dependencies
+
+Some dependencies don't force inclusion:
+
+```javascript
+// Weak dependency - module not included if not used elsewhere
+import(/* webpackMode: "weak" */ './module');
+
+// In ModuleGraphConnection:
+this.weak = true; // Module might not be available
+```
+
+## Conditional Dependencies
+
+Dependencies can be conditional:
+
+```javascript
+if (process.env.NODE_ENV === 'development') {
+  import './dev-tools';
+}
+
+// Connection has condition that checks runtime
+connection.condition = ({ runtime }) => {
+  return runtime === 'development';
+};
+```
+
+## Related Concepts
+
+- [Modules](/concepts/modules) - Graph nodes
+- [Entry Points](/concepts/entry-points) - Graph starting points
+- [Module Resolution](/concepts/module-resolution) - How edges are created

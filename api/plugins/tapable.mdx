@@ -1,0 +1,495 @@
+---
+title: Tapable Hooks
+description: Understanding Tapable hooks used throughout webpack's plugin system
+---
+
+Webpack's plugin architecture is built on [Tapable](https://github.com/webpack/tapable), a small library for plugin hooks. Understanding Tapable is essential for writing webpack plugins.
+
+## Overview
+
+Tapable provides different types of hooks that plugins can "tap into". Each hook type has different behavior regarding how plugins are executed and how they can control the flow.
+
+## Hook Types
+
+All hooks are instances of the `Hook` class from the Tapable library. Webpack uses several hook types:
+
+### SyncHook
+
+Executes plugins synchronously in the order they were registered. Plugins cannot affect each other.
+
+**Usage:**
+```javascript
+const { SyncHook } = require('tapable');
+
+class Compiler {
+  constructor() {
+    this.hooks = {
+      environment: new SyncHook([])
+    };
+  }
+}
+
+// Tapping into the hook
+compiler.hooks.environment.tap('MyPlugin', () => {
+  console.log('Environment hook called');
+});
+
+// Calling the hook
+compiler.hooks.environment.call();
+```
+
+**Examples in webpack:**
+- `compiler.hooks.environment`
+- `compiler.hooks.afterEnvironment`
+- `compilation.hooks.seal`
+
+---
+
+### SyncBailHook
+
+Executes plugins synchronously. If any plugin returns a non-`undefined` value, execution stops and that value is returned.
+
+**Usage:**
+```javascript
+const { SyncBailHook } = require('tapable');
+
+const hook = new SyncBailHook(['compilation']);
+
+hook.tap('Plugin1', (compilation) => {
+  // Return nothing, continue to next plugin
+});
+
+hook.tap('Plugin2', (compilation) => {
+  return true; // Stop execution, return true
+});
+
+hook.tap('Plugin3', (compilation) => {
+  // This will never execute
+});
+```
+
+**Examples in webpack:**
+- `compiler.hooks.shouldEmit`
+- `compilation.hooks.optimizeChunks`
+- `parser.hooks.statement`
+
+---
+
+### SyncWaterfallHook
+
+Executes plugins synchronously. Each plugin receives the return value from the previous plugin as an argument.
+
+**Usage:**
+```javascript
+const { SyncWaterfallHook } = require('tapable');
+
+const hook = new SyncWaterfallHook(['value']);
+
+hook.tap('Plugin1', (value) => {
+  return value + 1;
+});
+
+hook.tap('Plugin2', (value) => {
+  return value * 2;
+});
+
+const result = hook.call(1); // Returns 4: (1 + 1) * 2
+```
+
+**Examples in webpack:**
+- `compilation.hooks.assetPath`
+- `compilation.hooks.processWarnings`
+
+---
+
+### AsyncSeriesHook
+
+Executes plugins asynchronously in series (one after another). Plugins can use callbacks, promises, or async/await.
+
+**Usage:**
+```javascript
+const { AsyncSeriesHook } = require('tapable');
+
+const hook = new AsyncSeriesHook(['compilation']);
+
+// Callback style
+hook.tapAsync('Plugin1', (compilation, callback) => {
+  setTimeout(() => {
+    console.log('Plugin1 done');
+    callback();
+  }, 100);
+});
+
+// Promise style
+hook.tapPromise('Plugin2', (compilation) => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log('Plugin2 done');
+      resolve();
+    }, 100);
+  });
+});
+
+// Calling with callback
+hook.callAsync(compilation, (err) => {
+  if (err) console.error(err);
+  console.log('All plugins done');
+});
+
+// Or with promise
+await hook.promise(compilation);
+```
+
+**Examples in webpack:**
+- `compiler.hooks.beforeRun`
+- `compiler.hooks.run`
+- `compiler.hooks.emit`
+- `compilation.hooks.finishModules`
+
+---
+
+### AsyncSeriesBailHook
+
+Executes plugins asynchronously in series. Execution stops if any plugin returns a non-`undefined` value or calls the callback with a non-`undefined` value.
+
+**Usage:**
+```javascript
+const { AsyncSeriesBailHook } = require('tapable');
+
+const hook = new AsyncSeriesBailHook(['name']);
+
+hook.tapAsync('Plugin1', (name, callback) => {
+  callback(); // Continue
+});
+
+hook.tapAsync('Plugin2', (name, callback) => {
+  callback(null, 'result'); // Stop and return 'result'
+});
+
+hook.callAsync('test', (err, result) => {
+  console.log(result); // 'result'
+});
+```
+
+**Examples in webpack:**
+- `compilation.hooks.optimizeChunkModules`
+
+---
+
+### AsyncParallelHook
+
+Executes plugins asynchronously in parallel (all at once).
+
+**Usage:**
+```javascript
+const { AsyncParallelHook } = require('tapable');
+
+const hook = new AsyncParallelHook(['compilation']);
+
+hook.tapAsync('Plugin1', (compilation, callback) => {
+  setTimeout(() => {
+    console.log('Plugin1 done');
+    callback();
+  }, 100);
+});
+
+hook.tapAsync('Plugin2', (compilation, callback) => {
+  setTimeout(() => {
+    console.log('Plugin2 done');
+    callback();
+  }, 50);
+});
+
+hook.callAsync(compilation, (err) => {
+  console.log('All plugins done');
+});
+// Output order:
+// Plugin2 done (after 50ms)
+// Plugin1 done (after 100ms)
+// All plugins done (after 100ms)
+```
+
+**Examples in webpack:**
+- `compiler.hooks.make`
+
+---
+
+### AsyncSeriesWaterfallHook
+
+Executes plugins asynchronously in series. Each plugin receives the result from the previous plugin.
+
+**Usage:**
+```javascript
+const { AsyncSeriesWaterfallHook } = require('tapable');
+
+const hook = new AsyncSeriesWaterfallHook(['value']);
+
+hook.tapAsync('Plugin1', (value, callback) => {
+  callback(null, value + 1);
+});
+
+hook.tapPromise('Plugin2', async (value) => {
+  return value * 2;
+});
+
+await hook.promise(1); // Returns 4
+```
+
+---
+
+### HookMap
+
+A `HookMap` is a helper class that creates multiple hooks dynamically based on keys. It's used when you need different hook instances for different targets.
+
+**Usage:**
+```javascript
+const { HookMap, SyncBailHook } = require('tapable');
+
+const hookMap = new HookMap(() => new SyncBailHook(['expression']));
+
+// Access hook for specific key
+hookMap.for('myIdentifier').tap('Plugin1', (expr) => {
+  console.log('myIdentifier accessed');
+});
+
+hookMap.for('anotherIdentifier').tap('Plugin2', (expr) => {
+  console.log('anotherIdentifier accessed');
+});
+
+// Call specific hook
+hookMap.get('myIdentifier')?.call(expression);
+```
+
+**Examples in webpack:**
+- `parser.hooks.expression` - Different hook for each identifier
+- `parser.hooks.call` - Different hook for each function name
+- `parser.hooks.evaluateTypeof` - Different hook for each typeof target
+
+## Tapping into Hooks
+
+There are three ways to tap into hooks, depending on the hook type:
+
+### tap (Synchronous)
+
+Used for all Sync hooks and can be used for Async hooks.
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation, params) => {
+  // Synchronous code
+});
+```
+
+**Options:**
+```javascript
+compiler.hooks.compilation.tap({
+  name: 'MyPlugin',
+  stage: 100, // Optional: control execution order (lower = earlier)
+  before: 'OtherPlugin' // Optional: run before another plugin
+}, (compilation, params) => {
+  // Plugin code
+});
+```
+
+---
+
+### tapAsync (Callback-based)
+
+Used for Async hooks. Must call the callback when done.
+
+```javascript
+compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+  // Async code
+  doSomethingAsync((err) => {
+    if (err) return callback(err);
+    callback();
+  });
+});
+```
+
+---
+
+### tapPromise (Promise-based)
+
+Used for Async hooks. Return a Promise.
+
+```javascript
+compiler.hooks.emit.tapPromise('MyPlugin', async (compilation) => {
+  await doSomethingAsync();
+  // Return or resolve promise
+});
+```
+
+## Hook Parameters
+
+Hooks are created with parameter names that describe what arguments plugins will receive:
+
+```javascript
+new SyncHook(['compilation', 'params'])
+```
+
+When the hook is called, it passes these arguments to all tapped plugins:
+
+```javascript
+this.hooks.compilation.call(compilation, params);
+```
+
+Plugins receive these as function parameters:
+
+```javascript
+compiler.hooks.compilation.tap('MyPlugin', (compilation, params) => {
+  // compilation and params are passed from the call() above
+});
+```
+
+## Interception
+
+Hooks can be intercepted to observe or modify their behavior:
+
+```javascript
+compiler.hooks.compilation.intercept({
+  // Called when a plugin taps into the hook
+  register: (tapInfo) => {
+    console.log('Plugin registered:', tapInfo.name);
+    return tapInfo; // Can modify or replace tapInfo
+  },
+  
+  // Called before the hook is called
+  call: (...args) => {
+    console.log('Hook called with:', args);
+  },
+  
+  // Called before each plugin is executed
+  tap: (tapInfo) => {
+    console.log('Executing plugin:', tapInfo.name);
+  },
+  
+  // Called in a loop for each plugin (useful for async hooks)
+  loop: (...args) => {
+    console.log('Loop:', args);
+  }
+});
+```
+
+## Context
+
+Hooks support a context object that is shared across all plugins:
+
+```javascript
+const hook = new SyncHook(['arg'], 'MyContext');
+
+hook.tap({ name: 'Plugin1', context: true }, (context, arg) => {
+  context.shared = 'data';
+});
+
+hook.tap({ name: 'Plugin2', context: true }, (context, arg) => {
+  console.log(context.shared); // 'data'
+});
+
+hook.call('test');
+```
+
+## Best Practices
+
+### Always Provide a Plugin Name
+
+```javascript
+// Good
+compiler.hooks.compile.tap('MyPlugin', () => {});
+
+// Bad
+compiler.hooks.compile.tap('unknown', () => {});
+```
+
+### Handle Errors in Async Hooks
+
+```javascript
+// Callback style
+compiler.hooks.emit.tapAsync('MyPlugin', (compilation, callback) => {
+  try {
+    doSomething();
+    callback();
+  } catch (err) {
+    callback(err); // Pass error to webpack
+  }
+});
+
+// Promise style
+compiler.hooks.emit.tapPromise('MyPlugin', async (compilation) => {
+  try {
+    await doSomething();
+  } catch (err) {
+    throw err; // Webpack will catch this
+  }
+});
+```
+
+### Use Appropriate Hook Type
+
+- Use `tap` for synchronous operations
+- Use `tapAsync` when working with callbacks
+- Use `tapPromise` when using Promises or async/await
+
+### Return Values
+
+- In `SyncBailHook`, return a value to stop execution
+- In `SyncWaterfallHook`, return the modified value
+- In `AsyncSeriesBailHook`, pass value to callback or return from promise
+
+## Common Patterns
+
+### Modifying Webpack Configuration
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.afterEnvironment.tap('MyPlugin', () => {
+      // Modify compiler options
+      compiler.options.output.filename = '[name].[hash].js';
+    });
+  }
+}
+```
+
+### Adding Custom Hooks
+
+```javascript
+const { SyncHook } = require('tapable');
+
+class MyPlugin {
+  apply(compiler) {
+    // Add custom hook
+    compiler.hooks.myCustomHook = new SyncHook(['data']);
+    
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      // Call custom hook
+      compiler.hooks.myCustomHook.call({ custom: 'data' });
+    });
+  }
+}
+
+// Other plugins can tap into it
+compiler.hooks.myCustomHook.tap('OtherPlugin', (data) => {
+  console.log(data.custom);
+});
+```
+
+### Accessing Compilation Hooks
+
+```javascript
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      // Now access compilation hooks
+      compilation.hooks.buildModule.tap('MyPlugin', (module) => {
+        console.log('Building:', module.resource);
+      });
+    });
+  }
+}
+```
+
+## Reference
+
+For complete Tapable documentation, see:
+- [Tapable GitHub Repository](https://github.com/webpack/tapable)
+- [Tapable API Documentation](https://github.com/webpack/tapable#tapable)

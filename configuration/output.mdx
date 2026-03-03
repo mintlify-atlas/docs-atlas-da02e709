@@ -1,0 +1,597 @@
+---
+title: Output
+description: Configure how and where webpack outputs bundles, assets, and compiled files
+---
+
+The `output` configuration tells webpack how to write the compiled files to disk. While you can have multiple `entry` points, only one `output` configuration is specified.
+
+## Basic Configuration
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'bundle.js'
+  }
+};
+```
+
+## Path and Filename
+
+<ParamField path="output.path" type="string">
+  The output directory as an **absolute path** (required).
+  
+  **Default:** `path.join(process.cwd(), 'dist')`
+  
+  ```javascript
+  output: {
+    path: path.resolve(__dirname, 'dist')
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.filename" type="string | function">
+  Specifies the filename template of output files on disk.
+  
+  **Default:** `'[name].js'` (or `'[name].mjs'` when `output.module` is `true`)
+  
+  ```javascript
+  // Template strings
+  output: {
+    filename: '[name].[contenthash].js'
+  }
+  
+  // Function
+  output: {
+    filename: (pathData) => {
+      return pathData.chunk.name === 'main' ? '[name].js' : '[name]/[name].js';
+    }
+  }
+  ```
+</ParamField>
+
+### Template Strings
+
+Supported template strings:
+
+- `[name]` - Chunk name
+- `[id]` - Chunk id
+- `[contenthash]` - Hash of the content
+- `[chunkhash]` - Hash of the chunk
+- `[fullhash]` - Hash of the full compilation
+- `[hash]` - Deprecated, use `[fullhash]`
+
+```javascript
+output: {
+  filename: '[name].[contenthash:8].js'
+}
+```
+
+## Chunk Files
+
+<ParamField path="output.chunkFilename" type="string | function">
+  Specifies the filename template of non-initial output files (async chunks, split chunks).
+  
+  **Default:** Derived from `output.filename` with `[id]` prefix
+  
+  ```javascript
+  output: {
+    chunkFilename: '[name].[contenthash].chunk.js'
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.assetModuleFilename" type="string | function">
+  The filename of asset modules as relative path inside the `output.path` directory.
+  
+  **Default:** `'[hash][ext][query][fragment]'`
+  
+  ```javascript
+  output: {
+    assetModuleFilename: 'assets/[hash][ext]'
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.cssFilename" type="string | function">
+  Specifies the filename template of output CSS files.
+  
+  **Default:** Derived from `output.filename` with `.css` extension
+  
+  ```javascript
+  output: {
+    cssFilename: '[name].[contenthash].css'
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.cssChunkFilename" type="string | function">
+  Specifies the filename template of non-initial output CSS files.
+  
+  **Default:** Derived from `output.chunkFilename` with `.css` extension
+  
+  ```javascript
+  output: {
+    cssChunkFilename: '[name].[contenthash].chunk.css'
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.webassemblyModuleFilename" type="string">
+  The filename of WebAssembly modules as relative path inside the `output.path` directory.
+  
+  **Default:** `'[hash].module.wasm'`
+</ParamField>
+
+## Public Path
+
+<ParamField path="output.publicPath" type="string | 'auto' | function">
+  The public URL address of the output files when referenced in a browser. Used for loading on-demand chunks and assets.
+  
+  **Default:** `'auto'` (for web/importScripts targets) or `''` (empty string)
+  
+  ```javascript
+  // Static CDN
+  output: {
+    publicPath: 'https://cdn.example.com/assets/'
+  }
+  
+  // Relative path
+  output: {
+    publicPath: '/assets/'
+  }
+  
+  // Auto detection
+  output: {
+    publicPath: 'auto'
+  }
+  
+  // Function
+  output: {
+    publicPath: (pathData) => {
+      return process.env.NODE_ENV === 'production'
+        ? 'https://cdn.example.com/'
+        : '/';
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.workerPublicPath" type="string">
+  Worker public path. Much like the public path, this sets the location where worker script files are intended to be found.
+  
+  **Default:** `''` (empty string)
+</ParamField>
+
+## Chunk Loading
+
+<ParamField path="output.chunkLoading" type="string | false">
+  The method of loading chunks. Available methods:
+  - `'jsonp'` - JSONP chunk loading (web)
+  - `'import'` - Native ES module import (ESM)
+  - `'importScripts'` - `importScripts` chunk loading (WebWorker)
+  - `'require'` - Synchronous `require` (Node.js)
+  - `'async-node'` - Asynchronous `fs.readFile` (Node.js)
+  - `'universal'` - Universal chunk loading
+  - `false` - Disable chunk loading
+  
+  **Default:** Determined by `target` and `output.chunkFormat`
+</ParamField>
+
+<ParamField path="output.chunkFormat" type="string | false">
+  The format of chunks. Options:
+  - `'array-push'` - JSONP array push (web/WebWorker)
+  - `'commonjs'` - CommonJS module (Node.js)
+  - `'module'` - ES module (ESM)
+  - `false` - No chunk format
+  
+  **Default:** Determined by `target`
+</ParamField>
+
+<ParamField path="output.chunkLoadTimeout" type="number">
+  Number of milliseconds before chunk request expires.
+  
+  **Default:** `120000` (2 minutes)
+</ParamField>
+
+<ParamField path="output.chunkLoadingGlobal" type="string">
+  The global variable used by webpack for loading of chunks.
+  
+  **Default:** `'webpackChunk' + uniqueName`
+</ParamField>
+
+<ParamField path="output.workerChunkLoading" type="string | false">
+  The method of loading chunks in workers.
+  
+  **Default:** Determined by `target`
+</ParamField>
+
+<ParamField path="output.enabledChunkLoadingTypes" type="string[]">
+  List of chunk loading types enabled for use by entry points.
+  
+  **Default:** Auto-detected based on entry point configurations
+</ParamField>
+
+## WebAssembly Loading
+
+<ParamField path="output.wasmLoading" type="string | false">
+  The method of loading WebAssembly modules. Options:
+  - `'fetch'` - `fetch()` for loading (web/WebWorker)
+  - `'async-node'` - Asynchronous `fs.readFile` (Node.js)
+  - `'universal'` - Universal loading
+  - `false` - Disable
+  
+  **Default:** Determined by `target`
+</ParamField>
+
+<ParamField path="output.workerWasmLoading" type="string | false">
+  The method of loading WebAssembly modules in workers.
+  
+  **Default:** Same as `output.wasmLoading`
+</ParamField>
+
+<ParamField path="output.enabledWasmLoadingTypes" type="string[]">
+  List of wasm loading types enabled for use by entry points.
+</ParamField>
+
+## Library Output
+
+<ParamField path="output.library" type="string | object">
+  Make the output files a library, exporting the exports of the entry point.
+  
+  ```javascript
+  // String (variable name)
+  output: {
+    library: 'MyLibrary'
+  }
+  
+  // Object
+  output: {
+    library: {
+      name: 'MyLibrary',
+      type: 'umd',
+      export: 'default'
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.library.name" type="string | string[] | object">
+  The name of the library.
+</ParamField>
+
+<ParamField path="output.library.type" type="string">
+  Type of library. Options:
+  - `'var'` - Variable assigned to window
+  - `'module'` - ES module
+  - `'assign'` - Assign to a variable
+  - `'this'` - Assign to `this`
+  - `'window'` - Assign to `window`
+  - `'self'` - Assign to `self`
+  - `'global'` - Assign to `global`
+  - `'commonjs'` - CommonJS exports
+  - `'commonjs2'` - CommonJS2/Node.js exports
+  - `'amd'` - AMD module
+  - `'umd'` - Universal Module Definition
+  - `'system'` - SystemJS module
+  
+  **Default:** `'var'` (or `'module'` when `output.module` is `true`)
+</ParamField>
+
+<ParamField path="output.library.export" type="string | string[]">
+  Specify which export should be exposed as library.
+  
+  ```javascript
+  output: {
+    library: {
+      type: 'var',
+      name: 'MyLib',
+      export: 'default' // Only export the default export
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.libraryTarget" type="string">
+  Deprecated. Use `output.library.type` instead.
+</ParamField>
+
+<ParamField path="output.libraryExport" type="string | string[]">
+  Deprecated. Use `output.library.export` instead.
+</ParamField>
+
+<ParamField path="output.umdNamedDefine" type="boolean">
+  Name the AMD module when using UMD library type.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="output.enabledLibraryTypes" type="string[]">
+  List of library types enabled for use by entry points.
+</ParamField>
+
+## Hashing
+
+<ParamField path="output.hashFunction" type="string | class">
+  Algorithm used for generating the hash. Options include any hash algorithms supported by Node.js crypto module.
+  
+  **Default:** `'md4'` (or `'xxhash64'` with future defaults)
+  
+  ```javascript
+  output: {
+    hashFunction: 'xxhash64'
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.hashDigest" type="string">
+  Digest encoding used for the hash.
+  
+  **Default:** `'hex'`
+  
+  Options: `'hex'`, `'base64'`, `'base64url'`
+</ParamField>
+
+<ParamField path="output.hashDigestLength" type="number">
+  Number of chars which are used for the hash.
+  
+  **Default:** `20` (or `16` with future defaults)
+</ParamField>
+
+<ParamField path="output.hashSalt" type="string">
+  Any string which is added to the hash to salt it.
+</ParamField>
+
+## Advanced Options
+
+<ParamField path="output.uniqueName" type="string">
+  A unique name of the webpack build to avoid multiple webpack runtimes conflicting when using globals.
+  
+  **Default:** Derived from `package.json` name or `output.library` name
+</ParamField>
+
+<ParamField path="output.module" type="boolean">
+  Output JavaScript files as module source type (ESM).
+  
+  **Default:** `false`
+  
+  <Warning>Requires `experiments.outputModule` to be enabled.</Warning>
+</ParamField>
+
+<ParamField path="output.asyncChunks" type="boolean">
+  Enable/disable creating async chunks that are loaded on demand.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="output.scriptType" type="'text/javascript' | 'module' | false">
+  This option enables loading async chunks via a custom script type.
+  
+  **Default:** `false` (or `'module'` when `output.module` is `true`)
+</ParamField>
+
+<ParamField path="output.globalObject" type="string">
+  An expression which is used to address the global object/scope in runtime code.
+  
+  **Default:** `'self'` (web), `'global'` (node), or `'globalThis'`
+  
+  ```javascript
+  output: {
+    globalObject: 'this'
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.iife" type="boolean">
+  Wrap JavaScript code into IIFE's to avoid leaking into global scope.
+  
+  **Default:** `true` (or `false` when `output.module` is `true`)
+</ParamField>
+
+<ParamField path="output.importFunctionName" type="string">
+  The name of the native `import()` function (can be exchanged for a polyfill).
+  
+  **Default:** `'import'`
+</ParamField>
+
+<ParamField path="output.importMetaName" type="string">
+  The name of the native `import.meta` object.
+  
+  **Default:** `'import.meta'`
+</ParamField>
+
+## Source Maps
+
+<ParamField path="output.sourceMapFilename" type="string">
+  The filename of the SourceMaps for the JavaScript files. They are inside the `output.path` directory.
+  
+  **Default:** `'[file].map[query]'`
+</ParamField>
+
+<ParamField path="output.devtoolModuleFilenameTemplate" type="string | function">
+  Filename template string for the sources array in a generated SourceMap.
+  
+  **Default:** `'webpack://[namespace]/[resource-path]'`
+</ParamField>
+
+<ParamField path="output.devtoolFallbackModuleFilenameTemplate" type="string | function">
+  Similar to `devtoolModuleFilenameTemplate`, but used when duplicate module identifiers are found.
+</ParamField>
+
+<ParamField path="output.devtoolNamespace" type="string">
+  Module namespace to use when interpolating filename templates for SourceMaps.
+  
+  **Default:** Same as `output.uniqueName`
+</ParamField>
+
+## Hot Module Replacement
+
+<ParamField path="output.hotUpdateChunkFilename" type="string">
+  The filename of the Hot Update Chunks inside the `output.path` directory.
+  
+  **Default:** `'[id].[fullhash].hot-update.js'` (or `.mjs` for modules)
+</ParamField>
+
+<ParamField path="output.hotUpdateMainFilename" type="string">
+  The filename of the Hot Update Main File inside the `output.path` directory.
+  
+  **Default:** `'[runtime].[fullhash].hot-update.json'`
+</ParamField>
+
+<ParamField path="output.hotUpdateGlobal" type="string">
+  The global variable used by webpack for loading of hot update chunks.
+  
+  **Default:** `'webpackHotUpdate' + uniqueName`
+</ParamField>
+
+## Other Options
+
+<ParamField path="output.clean" type="boolean | object">
+  Clean the output directory before emit.
+  
+  **Default:** `false`
+  
+  ```javascript
+  output: {
+    clean: true
+  }
+  
+  // Or with options
+  output: {
+    clean: {
+      keep: /keep-this-file/
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.compareBeforeEmit" type="boolean">
+  Check if to be emitted file already exists and has the same content before writing to output filesystem.
+  
+  **Default:** `true`
+</ParamField>
+
+<ParamField path="output.pathinfo" type="boolean | 'verbose'">
+  Include comments with information about the modules.
+  
+  **Default:** `true` in development, `false` in production
+</ParamField>
+
+<ParamField path="output.charset" type="boolean">
+  Add charset attribute for script tag.
+  
+  **Default:** `true` (or `false` with future defaults)
+</ParamField>
+
+<ParamField path="output.crossOriginLoading" type="false | 'anonymous' | 'use-credentials'">
+  This option enables cross-origin loading of chunks.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="output.strictModuleErrorHandling" type="boolean">
+  Handles error in module loading correctly at a performance cost.
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="output.strictModuleExceptionHandling" type="boolean">
+  Handles exceptions in module loading correctly at a performance cost (deprecated).
+  
+  **Default:** `false`
+</ParamField>
+
+<ParamField path="output.environment" type="object">
+  The abilities of the environment where the webpack generated code should run.
+  
+  ```javascript
+  output: {
+    environment: {
+      arrowFunction: true,
+      const: true,
+      destructuring: true,
+      forOf: true,
+      dynamicImport: true,
+      module: false
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.trustedTypes" type="object">
+  Use Trusted Types to protect against DOM-based XSS attacks.
+  
+  ```javascript
+  output: {
+    trustedTypes: {
+      policyName: 'my-app#webpack'
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="output.ignoreBrowserWarnings" type="boolean">
+  Ignore warnings in the browser.
+  
+  **Default:** `false`
+</ParamField>
+
+## Example Configurations
+
+### Production Build with Content Hashing
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].[contenthash:8].js',
+    chunkFilename: '[name].[contenthash:8].chunk.js',
+    assetModuleFilename: 'assets/[hash][ext]',
+    clean: true
+  }
+};
+```
+
+### CDN Deployment
+
+```javascript
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: '[name].[contenthash].js',
+    publicPath: 'https://cdn.example.com/assets/',
+    crossOriginLoading: 'anonymous'
+  }
+};
+```
+
+### Library Output
+
+```javascript
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'my-library.js',
+    library: {
+      name: 'MyLibrary',
+      type: 'umd',
+      export: 'default'
+    },
+    globalObject: 'this'
+  }
+};
+```
+
+## Source Code Reference
+
+Output defaults are defined in `lib/config/defaults.js:1217-1659`.
+
+## See Also
+
+- [Entry Configuration](/configuration/entry-context)
+- [Module Configuration](/configuration/module)
+- [Webpack Output Guide](https://webpack.js.org/configuration/output/)

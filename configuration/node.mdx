@@ -1,0 +1,446 @@
+---
+title: Node
+description: Configure Node.js polyfills and global variables for browser bundles
+---
+
+The `node` configuration controls how webpack handles Node.js global variables and modules when targeting browser environments. This is useful for making Node.js code run in browsers.
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  node: {
+    __dirname: true,
+    __filename: true,
+    global: true
+  }
+};
+```
+
+## Overview
+
+<ParamField path="node" type="object | false">
+  Configure polyfills or mocks for Node.js global variables and modules.
+  
+  **Default:** Varies by target and configuration
+  
+  ```javascript
+  // Enable all polyfills
+  node: {
+    __dirname: true,
+    __filename: true,
+    global: true
+  }
+  
+  // Disable all
+  node: false
+  ```
+</ParamField>
+
+## Node Global Variables
+
+### __dirname
+
+<ParamField path="node.__dirname" type="boolean | 'warn-mock' | 'mock' | 'eval-only'">
+  Configure the `__dirname` variable behavior.
+  
+  **Default:** Varies by target
+  
+  Options:
+  - `true` - The dirname of the input file relative to context
+  - `false` - webpack won't touch `__dirname`
+  - `'warn-mock'` - Use `/` with a warning
+  - `'mock'` - Use `/` (empty string for root)
+  - `'eval-only'` - Evaluate to the string `'__dirname'`
+  
+  ```javascript
+  node: {
+    __dirname: true
+  }
+  // In a file: console.log(__dirname);
+  // Output: '/src/components' (relative to context)
+  ```
+</ParamField>
+
+### __filename
+
+<ParamField path="node.__filename" type="boolean | 'warn-mock' | 'mock' | 'eval-only'">
+  Configure the `__filename` variable behavior.
+  
+  **Default:** Varies by target
+  
+  Options:
+  - `true` - The filename of the input file relative to context
+  - `false` - webpack won't touch `__filename`
+  - `'warn-mock'` - Use `/index.js` with a warning
+  - `'mock'` - Use `/index.js`
+  - `'eval-only'` - Evaluate to the string `'__filename'`
+  
+  ```javascript
+  node: {
+    __filename: true
+  }
+  // In a file: console.log(__filename);
+  // Output: '/src/components/Button.js'
+  ```
+</ParamField>
+
+### global
+
+<ParamField path="node.global" type="boolean | 'warn'">
+  Configure the `global` variable behavior.
+  
+  **Default:** `true` (or `'warn'` with future defaults)
+  
+  Options:
+  - `true` - Provide a polyfill
+  - `false` - Don't provide a polyfill
+  - `'warn'` - Show a warning when used (recommended)
+  
+  ```javascript
+  node: {
+    global: 'warn'
+  }
+  // Using 'global' will show a warning to use 'globalThis' instead
+  ```
+</ParamField>
+
+<Info>
+  **Best Practice:** Use `'warn'` for `global` to encourage migration to `globalThis`, which is the standard global object in both browsers and Node.js.
+</Info>
+
+## Default Behaviors by Target
+
+### Web Target (default)
+
+```javascript
+// Implicit defaults for target: 'web'
+node: {
+  __dirname: 'warn-mock',
+  __filename: 'warn-mock',
+  global: true
+}
+```
+
+### Node Target
+
+```javascript
+// Implicit defaults for target: 'node'
+node: {
+  __dirname: 'eval-only',
+  __filename: 'eval-only',
+  global: false
+}
+```
+
+## Common Configurations
+
+### Browser Build with Node.js Code
+
+```javascript
+module.exports = {
+  target: 'web',
+  node: {
+    __dirname: true,
+    __filename: true,
+    global: true
+  }
+};
+```
+
+### Universal/Isomorphic Application
+
+```javascript
+module.exports = {
+  target: 'web',
+  node: {
+    // Keep Node.js behavior for server-rendered code
+    __dirname: false,
+    __filename: false,
+    global: false
+  }
+};
+```
+
+### Electron Application
+
+```javascript
+// Renderer process
+module.exports = {
+  target: 'electron-renderer',
+  node: {
+    __dirname: true,
+    __filename: true,
+    global: true
+  }
+};
+```
+
+### Disable All Polyfills
+
+```javascript
+module.exports = {
+  node: false
+};
+```
+
+### Migration-Friendly
+
+```javascript
+module.exports = {
+  node: {
+    __dirname: 'warn-mock',
+    __filename: 'warn-mock',
+    global: 'warn'
+  }
+};
+```
+
+## Polyfill Examples
+
+### What Gets Injected?
+
+When you enable Node.js polyfills:
+
+```javascript
+// Your code:
+console.log(__dirname);
+console.log(__filename);
+console.log(global.process);
+
+// With node: { __dirname: true, __filename: true, global: true }
+// webpack injects:
+const __dirname = '/src/components';
+const __filename = '/src/components/Button.js';
+const global = window;
+```
+
+### Mock vs Eval-Only
+
+```javascript
+// With 'mock'
+node: { __dirname: 'mock' }
+// webpack sets: const __dirname = '/';
+
+// With 'eval-only'
+node: { __dirname: 'eval-only' }
+// webpack keeps it as is, evaluates to the string '__dirname'
+```
+
+## Migration from webpack 4
+
+webpack 5 removed automatic Node.js polyfills. If you're migrating:
+
+### Before (webpack 4)
+
+```javascript
+// Node.js modules were automatically polyfilled
+import fs from 'fs';
+import path from 'path';
+```
+
+### After (webpack 5)
+
+You need to:
+
+1. **Use resolve.fallback for core modules**:
+
+```javascript
+module.exports = {
+  resolve: {
+    fallback: {
+      fs: false,  // Don't polyfill
+      path: require.resolve('path-browserify'),
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      buffer: require.resolve('buffer/')
+    }
+  }
+};
+```
+
+2. **Configure node globals**:
+
+```javascript
+module.exports = {
+  node: {
+    __dirname: true,
+    __filename: true,
+    global: true
+  },
+  plugins: [
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
+      Buffer: ['buffer', 'Buffer']
+    })
+  ]
+};
+```
+
+## Advanced Patterns
+
+### Conditional Polyfills
+
+```javascript
+const isProduction = process.env.NODE_ENV === 'production';
+
+module.exports = {
+  node: isProduction ? {
+    __dirname: 'mock',
+    __filename: 'mock',
+    global: false
+  } : {
+    __dirname: true,
+    __filename: true,
+    global: 'warn'
+  }
+};
+```
+
+### Multi-Target Build
+
+```javascript
+// Client bundle
+const clientConfig = {
+  target: 'web',
+  entry: './src/client.js',
+  node: {
+    __dirname: 'mock',
+    __filename: 'mock',
+    global: true
+  }
+};
+
+// Server bundle
+const serverConfig = {
+  target: 'node',
+  entry: './src/server.js',
+  node: {
+    __dirname: false,
+    __filename: false,
+    global: false
+  }
+};
+
+module.exports = [clientConfig, serverConfig];
+```
+
+### Custom Global Object
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  node: {
+    global: false  // Disable default polyfill
+  },
+  plugins: [
+    new webpack.DefinePlugin({
+      'global': 'globalThis'  // Use standard globalThis
+    })
+  ]
+};
+```
+
+## Troubleshooting
+
+### Error: Can't resolve 'fs'
+
+Node.js core modules aren't available in browsers:
+
+```javascript
+resolve: {
+  fallback: {
+    fs: false,  // Explicitly set to false
+    path: require.resolve('path-browserify')
+  }
+}
+```
+
+### global is not defined
+
+Enable global polyfill:
+
+```javascript
+node: {
+  global: true
+}
+```
+
+### process is not defined
+
+Provide process polyfill:
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.ProvidePlugin({
+      process: 'process/browser'
+    })
+  ]
+};
+```
+
+### Buffer is not defined
+
+Provide Buffer polyfill:
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.ProvidePlugin({
+      Buffer: ['buffer', 'Buffer']
+    })
+  ]
+};
+```
+
+## Best Practices
+
+1. **Use `'warn'` in development**: Helps identify code that won't work in browsers
+   ```javascript
+   node: {
+     global: 'warn'
+   }
+   ```
+
+2. **Prefer browser-compatible code**: Write code that works in both environments
+   ```javascript
+   // Instead of:
+   const global = global || window;
+   
+   // Use:
+   const globalObj = globalThis;
+   ```
+
+3. **Explicitly set `false` for unsupported modules**: Make it clear what's not available
+   ```javascript
+   resolve: {
+     fallback: {
+       fs: false,
+       net: false,
+       tls: false
+     }
+   }
+   ```
+
+4. **Target-specific configurations**: Use different configs for different targets
+
+5. **Test in target environment**: Ensure polyfills work as expected
+
+## Source Code Reference
+
+Node configuration defaults are defined in:
+- `lib/config/defaults.js:1772-1807` - Node defaults
+- `lib/NodeStuffPlugin.js` - Node polyfills implementation
+
+## See Also
+
+- [Target Configuration](/configuration/target)
+- [Resolve Configuration](/configuration/resolve)
+- [Externals Configuration](/configuration/externals)
+- [Node.js Polyfills](https://github.com/webpack/node-libs-browser)

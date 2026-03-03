@@ -1,0 +1,306 @@
+---
+title: SplitChunksPlugin
+description: Webpack's built-in SplitChunksPlugin for intelligently splitting code into separate chunks for optimal caching and loading strategies.
+---
+
+The `SplitChunksPlugin` is webpack's primary optimization plugin for code splitting. It automatically identifies shared modules between chunks and extracts them into separate bundles, improving caching efficiency and reducing bundle sizes.
+
+## Overview
+
+This plugin analyzes your module graph and creates optimized chunk splits based on configurable rules called "cache groups." It's enabled by default in production mode with sensible defaults.
+
+## Basic Usage
+
+The plugin is automatically enabled via `optimization.splitChunks`. Configure it in your webpack config:
+
+```javascript
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /node_modules/,
+          name: 'vendor',
+          priority: 10
+        }
+      }
+    }
+  }
+};
+```
+
+## Configuration Options
+
+<ParamField path="chunks" type="string | function" default="'async'">
+Determines which chunks will be selected for optimization:
+- `'async'` - only async chunks
+- `'initial'` - only initial chunks
+- `'all'` - both async and initial chunks
+- Function - custom chunk filter `(chunk) => boolean`
+</ParamField>
+
+<ParamField path="minSize" type="number | object" default="20000">
+Minimum size (in bytes) for a chunk to be generated. Can be a number or an object with size types:
+```javascript
+minSize: {
+  javascript: 20000,
+  style: 10000
+}
+```
+</ParamField>
+
+<ParamField path="minSizeReduction" type="number | object">
+Minimum size reduction required to generate a chunk. The total size reduction must be at least this value multiplied by the number of chunks.
+</ParamField>
+
+<ParamField path="minChunks" type="number" default="1">
+Minimum number of chunks that must share a module before splitting.
+</ParamField>
+
+<ParamField path="maxAsyncRequests" type="number" default="30">
+Maximum number of parallel requests when loading chunks on-demand.
+</ParamField>
+
+<ParamField path="maxInitialRequests" type="number" default="30">
+Maximum number of parallel requests at an entry point.
+</ParamField>
+
+<ParamField path="maxSize" type="number" default="0">
+Tells webpack to try to split chunks bigger than `maxSize` into smaller parts. Parts will be at least `minSize` in size.
+</ParamField>
+
+<ParamField path="maxAsyncSize" type="number" default="0">
+Like `maxSize`, but only for on-demand loading chunks.
+</ParamField>
+
+<ParamField path="maxInitialSize" type="number" default="0">
+Like `maxSize`, but only for initial load chunks.
+</ParamField>
+
+<ParamField path="name" type="string | function | false" default="false">
+The name of the split chunk. Providing `false` will keep the same name, so it doesn't change names unnecessarily.
+</ParamField>
+
+<ParamField path="automaticNameDelimiter" type="string" default="'-'">
+Delimiter used in generated chunk names.
+</ParamField>
+
+<ParamField path="cacheGroups" type="object">
+Cache groups allow you to define custom rules for chunk splitting. Each cache group inherits and/or overrides options from `splitChunks.*`.
+</ParamField>
+
+<ParamField path="filename" type="string | function">
+Allows to override the chunk filename when the chunk is an initial chunk. Can contain `[name]`, `[id]`, `[contenthash]` placeholders.
+</ParamField>
+
+<ParamField path="enforceSizeThreshold" type="number | object">
+Size threshold at which splitting is enforced and other restrictions (maxAsyncRequests, maxInitialRequests) are ignored.
+</ParamField>
+
+<ParamField path="minRemainingSize" type="number | object">
+Minimum size for the remaining chunk after splitting. In development mode, it defaults to 0. For production, `minRemainingSize` defaults to the value of `minSize`.
+</ParamField>
+
+<ParamField path="usedExports" type="boolean" default="false">
+Figure out which exports are used by modules to determine the set of chunks. This optimizes tree-shaking in combination with code splitting.
+</ParamField>
+
+## Cache Group Options
+
+Cache groups extend the base configuration with additional options:
+
+<ParamField path="test" type="RegExp | string | function">
+Controls which modules are selected for this cache group. Omitting it selects all modules.
+```javascript
+test: /node_modules/
+test: /[\\/]node_modules[\\/]lodash[\\/]/
+```
+</ParamField>
+
+<ParamField path="priority" type="number" default="0">
+A module can belong to multiple cache groups. The optimization prefers the cache group with a higher priority.
+</ParamField>
+
+<ParamField path="enforce" type="boolean" default="false">
+Tells webpack to ignore `minSize`, `minChunks`, `maxAsyncRequests`, and `maxInitialRequests` for this cache group and always create chunks.
+</ParamField>
+
+<ParamField path="reuseExistingChunk" type="boolean" default="true">
+If the current chunk contains modules already split out, it will be reused instead of generating a new one.
+</ParamField>
+
+<ParamField path="type" type="RegExp | string | function">
+Allows to filter modules by module type.
+```javascript
+type: 'json'
+```
+</ParamField>
+
+<ParamField path="idHint" type="string">
+Sets the hint for chunk id. It will be added to chunk's filename as a prefix.
+</ParamField>
+
+## Optimization Strategies
+
+### Vendor Bundle Splitting
+
+Extract all third-party libraries into a separate vendor bundle:
+
+```javascript
+splitChunks: {
+  cacheGroups: {
+    vendor: {
+      test: /[\\/]node_modules[\\/]/,
+      name: 'vendor',
+      chunks: 'all',
+      priority: 10
+    }
+  }
+}
+```
+
+### Commons Chunks
+
+Create a commons chunk for code shared between multiple entry points:
+
+```javascript
+splitChunks: {
+  cacheGroups: {
+    commons: {
+      name: 'commons',
+      chunks: 'initial',
+      minChunks: 2
+    }
+  }
+}
+```
+
+### Framework Splitting
+
+Split large frameworks into separate bundles:
+
+```javascript
+splitChunks: {
+  cacheGroups: {
+    react: {
+      test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
+      name: 'react',
+      chunks: 'all',
+      priority: 20
+    },
+    lodash: {
+      test: /[\\/]node_modules[\\/]lodash[\\/]/,
+      name: 'lodash',
+      chunks: 'all',
+      priority: 20
+    }
+  }
+}
+```
+
+### Size-Based Splitting
+
+Automatically split large chunks:
+
+```javascript
+splitChunks: {
+  chunks: 'all',
+  maxSize: 244000,
+  minSize: 20000
+}
+```
+
+## Examples
+
+### Multi-Entry with Shared Dependencies
+
+```javascript webpack.config.js
+module.exports = {
+  entry: {
+    pageA: './pageA',
+    pageB: './pageB',
+    pageC: './pageC'
+  },
+  optimization: {
+    splitChunks: {
+      cacheGroups: {
+        commons: {
+          chunks: 'initial',
+          minChunks: 2,
+          maxInitialRequests: 5,
+          minSize: 0
+        },
+        vendor: {
+          test: /node_modules/,
+          chunks: 'initial',
+          name: 'vendor',
+          priority: 10,
+          enforce: true
+        }
+      }
+    }
+  }
+};
+```
+
+### Advanced Configuration
+
+```javascript webpack.config.js
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+      minSize: 20000,
+      minRemainingSize: 0,
+      minChunks: 1,
+      maxAsyncRequests: 30,
+      maxInitialRequests: 30,
+      enforceSizeThreshold: 50000,
+      cacheGroups: {
+        defaultVendors: {
+          test: /[\\/]node_modules[\\/]/,
+          priority: -10,
+          reuseExistingChunk: true
+        },
+        default: {
+          minChunks: 2,
+          priority: -20,
+          reuseExistingChunk: true
+        }
+      }
+    }
+  }
+};
+```
+
+## How It Works
+
+The SplitChunksPlugin operates during the `optimizeChunks` compilation phase (STAGE_ADVANCED). It:
+
+1. **Analyzes the module graph** - Identifies which modules are shared between chunks
+2. **Groups modules by cache groups** - Applies cache group rules to categorize modules
+3. **Validates constraints** - Checks size limits, chunk counts, and other constraints
+4. **Creates new chunks** - Generates optimized chunk splits based on the configuration
+5. **Updates references** - Adjusts module relationships and chunk connections
+
+### Algorithm Details
+
+- Uses **deterministic grouping** for consistent chunk creation across builds
+- Supports **used exports analysis** when `usedExports` is enabled for better tree-shaking
+- Implements **multi-layer sorting** to prioritize cache groups by priority, chunk count, and size reduction
+- Validates **runtime conditions** to ensure modules are only split when safe
+
+## Performance Considerations
+
+- **Default configuration is optimized** for most use cases
+- **Avoid too many cache groups** as it increases build time
+- **Use `test` to limit module matching** instead of processing all modules
+- **Enable `usedExports`** for better optimization with tree-shaking
+- **Balance chunk size and request count** based on your application's needs
+
+## Related Plugins
+
+- [LimitChunkCountPlugin](/built-in-plugins/limit-chunk-count-plugin) - Limit the number of chunks
+- [MinChunkSizePlugin](/built-in-plugins/min-chunk-size-plugin) - Ensure minimum chunk size
+- [AggressiveMergingPlugin](/built-in-plugins/aggressive-merging-plugin) - Aggressively merge chunks

@@ -1,0 +1,417 @@
+---
+title: Watch and WatchOptions
+description: Configure webpack's watch mode for automatic rebuilds on file changes
+---
+
+Webpack can watch files and recompile whenever they change. This page covers the `watch` option and `watchOptions` for customizing watch mode behavior.
+
+## Basic Configuration
+
+```javascript
+module.exports = {
+  watch: true,
+  watchOptions: {
+    ignored: /node_modules/,
+    aggregateTimeout: 300
+  }
+};
+```
+
+## Watch
+
+<ParamField path="watch" type="boolean">
+  Enable watch mode. Webpack will watch for file changes and recompile when files change.
+  
+  **Default:** `false`
+  
+  ```javascript
+  module.exports = {
+    watch: true
+  };
+  ```
+</ParamField>
+
+<Info>
+  You can also enable watch mode via CLI:
+  ```bash
+  webpack --watch
+  ```
+</Info>
+
+## Watch Options
+
+<ParamField path="watchOptions" type="object">
+  Customize watch mode behavior.
+  
+  ```javascript
+  module.exports = {
+    watchOptions: {
+      aggregateTimeout: 300,
+      poll: 1000,
+      ignored: /node_modules/
+    }
+  };
+  ```
+</ParamField>
+
+### Aggregate Timeout
+
+<ParamField path="watchOptions.aggregateTimeout" type="number">
+  Delay the rebuild after the first change (in milliseconds). webpack will wait for this amount of time before rebuilding to aggregate multiple changes.
+  
+  **Default:** `20`
+  
+  ```javascript
+  watchOptions: {
+    aggregateTimeout: 300 // Wait 300ms after changes
+  }
+  ```
+</ParamField>
+
+### Polling
+
+<ParamField path="watchOptions.poll" type="boolean | number">
+  Use polling instead of native file watchers. Useful for network file systems or when native watchers don't work properly.
+  
+  **Default:** `false`
+  
+  ```javascript
+  // Check every second
+  watchOptions: {
+    poll: 1000
+  }
+  
+  // Enable polling with default interval
+  watchOptions: {
+    poll: true
+  }
+  ```
+</ParamField>
+
+<Info>
+  Polling can be CPU-intensive. Only use it when native watchers don't work (e.g., in Docker, VMs, or network drives).
+</Info>
+
+### Ignored
+
+<ParamField path="watchOptions.ignored" type="string | RegExp | string[] | RegExp[]">
+  Exclude files/directories from being watched. Reduces CPU and memory usage.
+  
+  **Default:** Excludes `node_modules` and `.git` by default
+  
+  ```javascript
+  // String pattern
+  watchOptions: {
+    ignored: '**/node_modules'
+  }
+  
+  // RegExp
+  watchOptions: {
+    ignored: /node_modules/
+  }
+  
+  // Multiple patterns
+  watchOptions: {
+    ignored: [
+      '**/node_modules',
+      '**/dist',
+      '**/.git'
+    ]
+  }
+  
+  // Absolute path
+  watchOptions: {
+    ignored: path.resolve(__dirname, 'node_modules')
+  }
+  ```
+</ParamField>
+
+### Follow Symlinks
+
+<ParamField path="watchOptions.followSymlinks" type="boolean">
+  Follow symbolic links when watching.
+  
+  **Default:** `false`
+  
+  ```javascript
+  watchOptions: {
+    followSymlinks: true
+  }
+  ```
+</ParamField>
+
+### Stdin
+
+<ParamField path="watchOptions.stdin" type="boolean">
+  Stop watching when stdin stream ends. Useful for piping webpack output.
+  
+  **Default:** `false`
+  
+  ```javascript
+  watchOptions: {
+    stdin: true
+  }
+  ```
+</ParamField>
+
+## Infrastructure Logging
+
+Control logging during watch mode:
+
+```javascript
+module.exports = {
+  watch: true,
+  infrastructureLogging: {
+    level: 'info'
+  },
+  stats: 'minimal'
+};
+```
+
+## Common Patterns
+
+### Basic Development Watch
+
+```javascript
+module.exports = {
+  mode: 'development',
+  watch: true,
+  watchOptions: {
+    ignored: /node_modules/,
+    aggregateTimeout: 300
+  }
+};
+```
+
+### Docker/VM Setup
+
+Use polling for file systems that don't support native watchers:
+
+```javascript
+module.exports = {
+  watch: true,
+  watchOptions: {
+    poll: 1000,
+    aggregateTimeout: 300,
+    ignored: /node_modules/
+  }
+};
+```
+
+### Monorepo Setup
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  watch: true,
+  watchOptions: {
+    aggregateTimeout: 300,
+    ignored: [
+      '**/node_modules',
+      path.resolve(__dirname, '../other-packages/*/dist')
+    ],
+    followSymlinks: true
+  }
+};
+```
+
+### Network File System
+
+```javascript
+module.exports = {
+  watch: true,
+  watchOptions: {
+    poll: 3000, // Check every 3 seconds
+    aggregateTimeout: 500,
+    ignored: /node_modules/
+  }
+};
+```
+
+### Large Project Optimization
+
+```javascript
+module.exports = {
+  watch: true,
+  watchOptions: {
+    aggregateTimeout: 600,
+    ignored: [
+      '**/node_modules',
+      '**/dist',
+      '**/build',
+      '**/.git',
+      '**/coverage'
+    ]
+  },
+  cache: {
+    type: 'filesystem'
+  },
+  snapshot: {
+    managedPaths: [
+      path.resolve(__dirname, 'node_modules')
+    ]
+  }
+};
+```
+
+## Watch Mode with Dev Server
+
+When using webpack-dev-server, watch mode is automatically enabled:
+
+```javascript
+module.exports = {
+  devServer: {
+    hot: true,
+    static: './dist',
+    watchFiles: ['src/**/*.php', 'public/**/*']
+  },
+  // watch and watchOptions still apply
+  watchOptions: {
+    ignored: /node_modules/
+  }
+};
+```
+
+## Programmatic Watch
+
+```javascript
+const webpack = require('webpack');
+const config = require('./webpack.config.js');
+
+const compiler = webpack(config);
+
+const watching = compiler.watch({
+  aggregateTimeout: 300,
+  poll: undefined,
+  ignored: /node_modules/
+}, (err, stats) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  
+  console.log(stats.toString({
+    colors: true,
+    modules: false,
+    children: false,
+    chunks: false,
+    chunkModules: false
+  }));
+});
+
+// To stop watching
+// watching.close(() => {
+//   console.log('Watching ended.');
+// });
+```
+
+## Watch Events
+
+```javascript
+const compiler = webpack(config);
+
+const watching = compiler.watch({}, (err, stats) => {});
+
+compiler.hooks.watchRun.tap('WatchRun', (comp) => {
+  console.log('Watch compilation starting...');
+});
+
+compiler.hooks.watchClose.tap('WatchClose', () => {
+  console.log('Watch ended.');
+});
+
+compiler.hooks.invalid.tap('Invalid', (fileName, changeTime) => {
+  console.log(`File changed: ${fileName} at ${changeTime}`);
+});
+```
+
+## Troubleshooting
+
+### Watch Not Working
+
+1. **Check file watchers limit (Linux)**:
+   ```bash
+   # Check current limit
+   cat /proc/sys/fs/inotify/max_user_watches
+   
+   # Increase limit
+   echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+   sudo sysctl -p
+   ```
+
+2. **Use polling** (temporary workaround):
+   ```javascript
+   watchOptions: {
+     poll: 1000
+   }
+   ```
+
+3. **Check ignored patterns**:
+   ```javascript
+   watchOptions: {
+     ignored: /node_modules/ // Make sure not ignoring source files
+   }
+   ```
+
+### Performance Issues
+
+1. **Increase aggregate timeout**:
+   ```javascript
+   watchOptions: {
+     aggregateTimeout: 1000 // Wait longer before rebuilding
+   }
+   ```
+
+2. **Ignore more directories**:
+   ```javascript
+   watchOptions: {
+     ignored: [
+       '**/node_modules',
+       '**/dist',
+       '**/build',
+       '**/.git',
+       '**/coverage',
+       '**/*.test.js'
+     ]
+   }
+   ```
+
+3. **Use filesystem cache**:
+   ```javascript
+   cache: {
+     type: 'filesystem'
+   }
+   ```
+
+### Docker/WSL Issues
+
+Enable polling for Docker containers or WSL:
+
+```javascript
+module.exports = {
+  watch: true,
+  watchOptions: {
+    poll: 1000,
+    aggregateTimeout: 300
+  }
+};
+```
+
+Or use environment variable:
+```bash
+WEBPACK_WATCH_POLL=1000 webpack --watch
+```
+
+## Source Code Reference
+
+Watch configuration defaults are defined in:
+- `lib/config/defaults.js:350` - Watch default (false)
+- Watching implementation in `lib/Watching.js`
+
+## See Also
+
+- [Dev Server Configuration](/configuration/dev-server)
+- [Cache Configuration](/configuration/overview#cache)
+- [Webpack Watch Guide](https://webpack.js.org/configuration/watch/)
+- [Webpack Watch API](https://webpack.js.org/api/node/#watching)

@@ -1,0 +1,169 @@
+---
+title: CleanPlugin
+description: Remove/clean the build output directory before building
+---
+
+Removes all files inside webpack's output directory and unused assets after every successful rebuild.
+
+## Usage
+
+```js
+const webpack = require('webpack');
+
+module.exports = {
+  plugins: [
+    new webpack.CleanPlugin()
+  ]
+};
+```
+
+Or using the `output.clean` configuration option (recommended):
+
+```js
+module.exports = {
+  output: {
+    clean: true // Uses CleanPlugin internally
+  }
+};
+```
+
+## Constructor
+
+```js
+new webpack.CleanPlugin(options);
+```
+
+## Options
+
+<ParamField path="dry" type="boolean" default={false}>
+  If `true`, simulates the removal of files without actually deleting them. Useful for testing what would be deleted.
+
+  ```js
+  new webpack.CleanPlugin({
+    dry: true
+  });
+  ```
+
+  When `dry` is enabled, the plugin will log what would be removed instead of actually removing files.
+</ParamField>
+
+<ParamField path="keep" type="string | RegExp | function">
+  Keep specific assets from being removed. Can be a string prefix, RegExp pattern, or function.
+
+  ```js
+  // Keep files starting with 'important-'
+  new webpack.CleanPlugin({
+    keep: 'important-'
+  });
+
+  // Keep files matching a pattern
+  new webpack.CleanPlugin({
+    keep: /\.gitkeep$/
+  });
+
+  // Keep files using a function
+  new webpack.CleanPlugin({
+    keep: (asset) => {
+      return asset.startsWith('vendor/');
+    }
+  });
+  ```
+</ParamField>
+
+## How It Works
+
+The CleanPlugin performs the following operations:
+
+1. **Initial Clean**: On the first build, compares the output directory with the current build assets
+2. **Incremental Clean**: On subsequent builds, only removes assets that are no longer generated
+3. **Keep Dot-files**: Automatically preserves dot-files (files starting with `.`) in subdirectories
+4. **Smart Tracking**: Tracks HMR (Hot Module Replacement) assets to avoid removing them during development
+
+## Hooks
+
+The plugin provides compilation hooks that can be used by other plugins:
+
+```js
+const { CleanPlugin } = require('webpack');
+
+class MyPlugin {
+  apply(compiler) {
+    compiler.hooks.compilation.tap('MyPlugin', (compilation) => {
+      const hooks = CleanPlugin.getCompilationHooks(compilation);
+      
+      hooks.keep.tap('MyPlugin', (asset) => {
+        // Return true to keep the asset, false to remove it
+        if (asset === 'important.js') {
+          return true;
+        }
+      });
+    });
+  }
+}
+```
+
+### Available Hooks
+
+- `keep`: SyncBailHook - Called for each asset to determine if it should be kept
+
+## Examples
+
+### Basic Clean
+
+```js
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    clean: true
+  }
+};
+```
+
+### Dry Run
+
+```js
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    clean: {
+      dry: true
+    }
+  }
+};
+```
+
+### Keep Specific Files
+
+```js
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    clean: {
+      keep: /\.gitkeep$/  // Keep .gitkeep files
+    }
+  }
+};
+```
+
+### Keep Multiple Patterns
+
+```js
+module.exports = {
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    clean: {
+      keep(asset) {
+        return asset.includes('static/') || asset.endsWith('.json');
+      }
+    }
+  }
+};
+```
+
+## Notes
+
+- The plugin only removes files within the output directory
+- Dot-files in subdirectories are automatically preserved
+- Works seamlessly with webpack's watch mode and dev server
+- HMR assets are tracked with a 10-second grace period to avoid premature removal
+- The plugin requires the output file system to support `readdir`, `stat`/`lstat`, `unlink`, and `rmdir` operations
